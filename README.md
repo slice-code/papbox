@@ -8,7 +8,7 @@
 
 Gunakan Node.js 24 (versi yang telah diuji), lalu `npm ci`. Untuk pengembangan dengan PostgreSQL, ikuti [panduan database](docs/DATABASE.md): siapkan `.env`, jalankan `docker compose up -d --wait`, `npm run db:migrate`, lalu `npm start`. Adapter JSON tetap tersedia bila `DATABASE_URL` tidak diatur. Buka aplikasi pada port 3000 dan buat administrator pertama; tidak ada akun bawaan. Jalankan `npm test`, `npm run test:postgres`, dan `npm run check` sesuai panduan.
 
-Launcher, autentikasi, pengelolaan katalog modul, menu, pengguna, pengaturan, dan fondasi PWA sudah tersedia. POS, Inventory, CRM, dan Invoice belum menyediakan transaksi bisnis. Lihat [panduan pengembangan](docs/DEVELOPMENT.md) untuk kontrak, konfigurasi, keamanan, dan batasan versi awal.
+Launcher, autentikasi, pengelolaan aplikasi/menu/pengguna/pengaturan, reset kata sandi, sesi bersama PostgreSQL, provisioning tenant lewat CLI, paket deklaratif bertanda tangan dengan update/rollback, dan fondasi PWA sudah tersedia. Lihat [panduan sistem utama](docs/SYSTEM.md) untuk prosedur akun, tenant, dan paket. POS, Inventory, CRM, dan Invoice belum menyediakan transaksi bisnis. Lihat [panduan pengembangan](docs/DEVELOPMENT.md) untuk kontrak, konfigurasi, keamanan, dan batasan versi awal.
 
 ## Vision
 Build SaaS applications by installing modules into one simple, familiar app launcher. PAPbox favors ease of use over dense dashboards and keeps its kernel small.

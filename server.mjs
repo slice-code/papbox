@@ -1,13 +1,13 @@
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { randomBytes, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { Kernel, Fault } from './core/kernel.mjs';
 import { Store } from './core/store.mjs';
-import { registerSystem, passwordHash, verify, roles, text } from './system/services.mjs';
-export function createApp({ store: providedStore, path = process.env.PAPBOX_DATA || fileURLToPath(new URL('./storage/data.json', import.meta.url)), secure = process.env.NODE_ENV === 'production' } = {}) {
-  const store = providedStore || new Store(path), kernel = new Kernel(), sessions = new Map(), attempts = new Map();
-  registerSystem(kernel, store);
+import { registerSystem, roles } from './system/services.mjs';
+import { Identity, provisionTenant, tenantPattern, digest } from './system/identity.mjs';
+export function createApp({ authLimit=10, trustedKeys={}, store: providedStore, path = process.env.PAPBOX_DATA || fileURLToPath(new URL('./storage/data.json', import.meta.url)), secure = process.env.NODE_ENV === 'production' } = {}) {
+  const store = providedStore || new Store(path), kernel = new Kernel(), identity = new Identity(store), attempts = new Map();
+  registerSystem(kernel, store, {trustedKeys});
   const assets = { '/':'index.html','/app.js':'app.js','/style.css':'style.css','/manifest.webmanifest':'manifest.webmanifest','/sw.js':'sw.js','/offline.html':'offline.html','/icon.svg':'icon.svg','/icon-192.png':'icon-192.png','/icon-512.png':'icon-512.png' };
   const server = createServer(async (req,res) => {
     const headers = { 'X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin','Content-Security-Policy':"default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'", 'Cache-Control':'no-store' };
@@ -24,40 +24,50 @@ export function createApp({ store: providedStore, path = process.env.PAPBOX_DATA
         if (!req.headers['content-type']?.startsWith('application/json')) throw new Fault(415,'Gunakan JSON');
       }
       let input = {};
-      if (req.method === 'POST') { let data=''; for await (const chunk of req) { data+=chunk; if (Buffer.byteLength(data)>16384) throw new Fault(413,'Permintaan terlalu besar'); } try { input=JSON.parse(data); } catch { throw new Fault(400,'JSON tidak valid'); } if (!input || typeof input !== 'object' || Array.isArray(input)) throw new Fault(400,'Objek JSON diperlukan'); }
-      const token = req.headers.cookie?.split(';').map(x=>x.trim()).find(x=>x.startsWith('papbox='))?.slice(7);
-      const session = sessions.get(token);
-      if (session && session.expires < Date.now()) sessions.delete(token);
-      const state = await store.read(session?.tenant || (typeof input.tenant === 'string' ? input.tenant : 'default'));
-      if (req.method === 'GET' && url.pathname === '/api/session') {
-        const user = session && session.expires > Date.now() && state.tenants[session.tenant]?.users.find(u=>u.id===session.user);
-        return send(200,{ setup:!Object.keys(state.tenants).length, user:user ? { name:user.name,email:user.email,role:user.role,tenant:session.tenant } : null });
+      if (req.method === 'POST') {
+        const chunks=[];let length=0;
+        for await(const chunk of req){length+=chunk.length;if(length>65536)throw new Fault(413,'Permintaan terlalu besar');chunks.push(chunk);}
+        try{input=JSON.parse(new TextDecoder('utf-8',{fatal:true}).decode(Buffer.concat(chunks)));}catch{throw new Fault(400,'JSON tidak valid');}
+        if(!input || typeof input!=='object' || Array.isArray(input))throw new Fault(400,'Objek JSON diperlukan');
       }
-      if (req.method === 'POST' && ['/api/setup','/api/login'].includes(url.pathname)) {
+      const token = req.headers.cookie?.split(';').map(x=>x.trim()).find(x=>x.startsWith('papbox='))?.slice(7);
+      const resolved = await identity.resolve(token);
+      const tenantId=resolved?.tenant || (typeof input.tenant==='string'?input.tenant:'default');
+      if(!tenantPattern.test(tenantId))throw new Fault(400,'ID tenant tidak valid');
+      const state=resolved?.state || await store.read(tenantId);
+      if (req.method === 'GET' && url.pathname === '/api/session') {
+        const user=resolved?.user;
+        const setupState=tenantId==='default'?state:await store.read('default');
+        return send(200,{setup:!Object.hasOwn(setupState.tenants,'default'),user:user?{id:user.id,name:user.name,email:user.email,role:user.role,tenant:resolved.tenant}:null});
+      }
+      if (req.method === 'POST' && ['/api/setup','/api/login','/api/reset'].includes(url.pathname)) {
         const address=req.socket.remoteAddress, now=Date.now();
-        const limit=attempts.get(address); if (limit && now-limit.start < 60000 && limit.count >= 10) throw new Fault(429,'Coba lagi dalam satu menit');
-        if (!limit || now-limit.start >= 60000) attempts.set(address,{ start:now,count:1 }); else limit.count++;
-        let tenant, user;
-        if (url.pathname === '/api/setup') {
-          if (!['127.0.0.1','::1','::ffff:127.0.0.1'].includes(address)) throw new Fault(403,'Setup awal hanya dari localhost');
-          tenant='default';
-          user={ id:randomUUID(),name:text(input.name),email:text(input.email,160).toLowerCase(),role:'admin',hash:passwordHash(input.password) };
-          if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(user.email)) throw new Fault(400,'Email tidak valid');
-          await store.transact(s=>{ if (Object.keys(s.tenants).length) throw new Fault(409,'Setup sudah selesai'); s.tenants[tenant]={ users:[user],modules:{},menus:{},settings:{name:'PAPbox',locale:'id-ID'},audit:[] }; });
-        } else {
-          tenant = typeof input.tenant === 'string' ? input.tenant : 'default';
-          user=Object.hasOwn(state.tenants,tenant) && state.tenants[tenant].users.find(u=>u.email===String(input.email).toLowerCase());
-          if (!user || !verify(input.password,user.hash)) throw new Fault(401,'Email atau kata sandi salah');
+        if(store.allowAuth){if(!await store.allowAuth(digest(address),authLimit))throw new Fault(429,'Coba lagi dalam satu menit');}
+        else {
+          for(const [key,item] of attempts)if(now-item.start>=60000)attempts.delete(key);
+          const limit=attempts.get(address);if(limit && limit.count>=authLimit)throw new Fault(429,'Coba lagi dalam satu menit');
+          if(!limit)attempts.set(address,{start:now,count:1});else limit.count++;
         }
-        const id=randomBytes(32).toString('hex'); sessions.set(id,{ tenant,user:user.id,expires:now+8*60*60*1000 });
+        if(url.pathname==='/api/reset')return send(200,await identity.reset(input.token,input.password));
+        let tenant=typeof input.tenant==='string'?input.tenant:'default';
+        if(url.pathname==='/api/setup'){
+          if(!['127.0.0.1','::1','::ffff:127.0.0.1'].includes(address))throw new Fault(403,'Setup awal hanya dari localhost');
+          tenant='default';
+          await provisionTenant(store,{tenant,name:'PAPbox',adminName:input.name,email:input.email,password:input.password});
+        }
+        const id=await identity.login(tenant,input.email,input.password);
+        // Remove a previous authenticated token when explicitly switching accounts.
+        if(resolved)await identity.logout(token);
         return send(200,{ok:true},{'Set-Cookie':`papbox=${id}; HttpOnly; SameSite=Strict; Path=/; Max-Age=28800${secure ? '; Secure' : ''}`});
       }
-      if (!session || session.expires < Date.now()) throw new Fault(401,'Silakan masuk');
-      const user=state.tenants[session.tenant]?.users.find(u=>u.id===session.user);
-      if (!user) throw new Fault(401,'Sesi tidak valid');
-      if (req.method === 'POST' && url.pathname === '/api/logout') { sessions.delete(token); return send(200,{ok:true},{'Set-Cookie':'papbox=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0'}); }
+      if(!resolved)throw new Fault(401,'Silakan masuk');
+      const user=resolved.user;
+      if(req.method==='POST' && url.pathname==='/api/logout'){
+        await identity.logout(token);
+        return send(200,{ok:true},{'Set-Cookie':`papbox=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${secure ? '; Secure' : ''}`});
+      }
       if (req.method !== 'POST' || !url.pathname.startsWith('/api/services/')) throw new Fault(404,'Tidak ditemukan');
-      const result=await kernel.invoke(url.pathname.slice('/api/services/'.length),{tenant:session.tenant,user:user.id,permissions:roles[user.role] || []},input);
+      const result=await kernel.invoke(url.pathname.slice('/api/services/'.length),{tenant:resolved.tenant,user:user.id,authVersion:resolved.session.authVersion,permissions:roles[user.role] || []},input);
       send(200,result);
     } catch (error) { if (!error.status) console.error(error); send(error.status || 500,{error:error.status ? error.message : 'Kesalahan server'}); }
   });
@@ -71,7 +81,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     store = new PostgresStore(createPool(process.env.DATABASE_URL));
     try { await store.initialize(); } catch (error) { await store.close(); throw error; }
   }
-  const {server}=createApp({store});
+  const trustedKeys=process.env.PAPBOX_TRUSTED_KEYS ? JSON.parse(await readFile(process.env.PAPBOX_TRUSTED_KEYS,'utf8')) : {};
+  const {server}=createApp({store,trustedKeys});
   server.listen(Number(process.env.PORT || 3000),process.env.HOST || '127.0.0.1',()=>console.log('PAPbox berjalan pada port '+server.address().port+' · '+(store ? 'PostgreSQL' : 'JSON development store')));
   for (const signal of ['SIGTERM','SIGINT']) process.once(signal,()=>server.close(async()=>{await store?.close();}));
 }

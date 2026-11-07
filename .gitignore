@@ -1,3 +1,8 @@
 storage/
 .env
 node_modules/
+.env.*
+!.env.example
+*.pem
+*.key
+config/trusted-publishers.json

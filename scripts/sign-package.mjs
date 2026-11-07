@@ -1,0 +1,10 @@
+import { readFile, writeFile } from 'node:fs/promises';
+import { createPrivateKey, sign } from 'node:crypto';
+import { parseArgs } from 'node:util';
+import { canonical } from '../system/packages.mjs';
+const {values}=parseArgs({options:{manifest:{type:'string'},key:{type:'string'},publisher:{type:'string'},out:{type:'string'}}});
+if(!values.manifest || !values.key || !values.publisher || !values.out)throw Error('Usage: package:sign -- --manifest manifest.json --key private.pem --publisher key-id --out bundle.json');
+const key=createPrivateKey(await readFile(values.key));if(key.asymmetricKeyType!=='ed25519')throw Error('Ed25519 required');
+const payload={format:'papbox.module/1',publisher:values.publisher,manifest:JSON.parse(await readFile(values.manifest,'utf8'))};
+await writeFile(values.out,JSON.stringify({...payload,signature:sign(null,Buffer.from(canonical(payload)),key).toString('base64')},null,2)+'\n',{flag:'wx'});
+console.log('Signed package written');

@@ -1,0 +1,10 @@
+{
+  "id": "notes",
+  "version": "1.0.0",
+  "api": 1,
+  "name": "Catatan",
+  "icon": "N",
+  "color": "green",
+  "description": "Panduan internal tenant dalam aplikasi deklaratif.",
+  "content": "Selamat datang. Isi ini ditampilkan sebagai teks biasa.\nTidak ada HTML, skrip, atau akses data bisnis."
+}

@@ -9,7 +9,10 @@
     "check": "node --check server.mjs && node --check public/app.js",
     "db:migrate": "node --env-file-if-exists=.env scripts/migrate.mjs",
     "test:postgres": "PAPBOX_REQUIRE_POSTGRES_TESTS=1 node --env-file-if-exists=.env --test tests/postgres.test.mjs",
-    "db:import-json": "node --env-file-if-exists=.env scripts/import-json.mjs"
+    "db:import-json": "node --env-file-if-exists=.env scripts/import-json.mjs",
+    "tenant:create": "node --env-file-if-exists=.env scripts/tenant.mjs",
+    "account:recover": "node --env-file-if-exists=.env scripts/recover-account.mjs",
+    "package:sign": "node scripts/sign-package.mjs"
   },
   "dependencies": {
     "pg": "^8.23.1"

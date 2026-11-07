@@ -6,6 +6,7 @@ export const catalog = Object.freeze([
   { id: 'invoice', name: 'Invoice', icon: '▥', color: 'orange', description: 'Modul faktur — kontrak bisnis belum diimplementasikan.' }
 ]);
 export const systemApps = [
+  { id:'account',name:'Akun Saya',icon:'◎',color:'blue',permission:'launcher.read' },
   { id: 'users', name: 'Pengguna', icon: '♙', color: 'pink', permission: 'users.manage' },
   { id: 'apps', name: 'Aplikasi', icon: '◇', color: 'slate', permission: 'apps.manage' },
   { id: 'settings', name: 'Pengaturan', icon: '⚙', color: 'slate', permission: 'settings.manage' },

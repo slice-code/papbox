@@ -7,6 +7,7 @@ import { migrate } from '../adapters/postgres/migrate.mjs';
 import { Kernel } from '../core/kernel.mjs';
 import { registerSystem, roles, passwordHash } from '../system/services.mjs';
 import { createApp } from '../server.mjs';
+import { systemContract } from './helpers/system-contract.mjs';
 import { importJson } from '../scripts/import-json.mjs';
 
 const enabled=Boolean(process.env.TEST_DATABASE_ADMIN_URL && process.env.TEST_DATABASE_URL);
@@ -20,7 +21,7 @@ test('PostgreSQL migrations, tenant RLS, rollback, concurrency, constraints, HTT
  const pool=createPool(url(process.env.TEST_DATABASE_URL)),store=new PostgresStore(pool);
  t.after(async()=>{await pool.end();await migrationPool.end();await admin.query(`DROP DATABASE ${database}`);await admin.end();});
  await migrate(migrationPool);await migrate(migrationPool);
- assert.equal((await migrationPool.query('SELECT count(*)::integer AS count FROM schema_migrations')).rows[0].count,2);
+ assert.equal((await migrationPool.query('SELECT count(*)::integer AS count FROM schema_migrations')).rows[0].count,3);
  const originalChecksum=(await migrationPool.query("SELECT checksum FROM schema_migrations WHERE version='001_platform.sql'")).rows[0].checksum;
  await migrationPool.query("UPDATE schema_migrations SET checksum='tampered' WHERE version='001_platform.sql'");
  await assert.rejects(migrate(migrationPool),/checksum mismatch/);
@@ -69,4 +70,6 @@ test('PostgreSQL migrations, tenant RLS, rollback, concurrency, constraints, HTT
   assert.equal((await new PostgresStore(pool).read('alpha')).tenants.alpha.settings.name,'Postgres workspace');
   assert.equal((await store.read('beta')).tenants.beta.settings.name,'beta');
  }finally{server.closeAllConnections();await new Promise(resolve=>server.close(resolve));}
+ const replicaPool=createPool(url(process.env.TEST_DATABASE_URL));
+ try{const replicaStore=new PostgresStore(replicaPool);await replicaStore.initialize();await systemContract(store,{replicaStore});}finally{await replicaPool.end();}
 });

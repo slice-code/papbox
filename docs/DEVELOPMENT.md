@@ -32,8 +32,7 @@ npm run check
 
 Pengujian menggunakan penyimpanan sementara dan tidak mengubah data aplikasi.
 Jika `DATABASE_URL` diset, server memakai PostgreSQL dan membutuhkan migrasi terlebih dahulu. Instruksi di paragraf ini hanya untuk adapter JSON. Data JSON lokal ada di `storage/data.json` (diabaikan Git), dengan kata sandi scrypt
-bersalt. Sesi hanya ada dalam memori, kedaluwarsa setelah delapan jam, dan hilang
-saat server restart. Backup file data hanya saat server dihentikan. Jalankan satu
+bersalt. Hash sesi disimpan pada adapter yang dipilih dan kedaluwarsa setelah delapan jam. Perubahan akses/kata sandi mencabut sesi; lihat [kontrak sistem](SYSTEM.md). Backup file data hanya saat server dihentikan. Jalankan satu
 proses server: antrean penulisan dan rename atomik bukan penguncian multiproses.
 
 ## Fitur yang tersedia
@@ -42,21 +41,21 @@ proses server: antrean penulisan dan rename atomik bukan penguncian multiproses.
 - Launcher responsif dengan pencarian dan menu berdasarkan izin.
 - Katalog metadata modul bawaan: pasang dengan konfirmasi, aktif/nonaktif, hapus.
 - Pengaturan nama, urutan, dan visibilitas menu.
-- Daftar dan pembuatan pengguna; pengaturan nama ruang kerja dan audit mutasi.
+- Pembuatan/edit/status pengguna, perlindungan admin terakhir, dan reset kata sandi sekali pakai.
+- Akun Saya untuk mengganti password dan mencabut sesi; provisioning tenant lewat CLI operator.
+- Instalasi/update/rollback paket deklaratif bertanda tangan Ed25519.
+- Pengaturan nama ruang kerja dan audit mutasi.
 - Manifest PWA, ikon orisinal PNG/SVG, service worker, fallback offline, dan tombol
   pembaruan ketika worker baru tersedia. Ubah versi cache ketika mengubah aset.
 - Data autentikasi dan API tidak dicache. Offline tidak menyediakan data bisnis.
 
-POS, Inventory, CRM, dan Invoice **belum memiliki operasi bisnis**. Metadata
-katalog tidak memuat kode pihak ketiga dan bukan mekanisme sandbox atau tanda
-tangan paket. Penghapusan saat ini menghapus registrasi/menu saja.
+POS, Inventory, CRM, dan Invoice **belum memiliki operasi bisnis**. Katalog bawaan tidak memuat kode pihak ketiga. Paket deklaratif bertanda tangan didukung sesuai [SYSTEM.md](SYSTEM.md), tanpa mengeksekusi kode pihak ketiga. Penghapusan modul menghapus registrasi/menu dan histori paketnya.
 
 ## Kontrak implementasi awal
 
 Ini pilihan sementara untuk implementasi lokal, bukan keputusan arsitektur final:
 PostgreSQL sebagai adapter utama (JSON untuk tes ringan), DOM browser native sebagai rendering, dan
-identitas tenant dari sesi server. Tidak ada API membuat tenant; setup membuat
-`default`. Uji layanan membuktikan pemisahan dua tenant, tetapi belum merupakan
+identitas tenant dari sesi server. Tidak ada API pendaftaran tenant publik; setup membuat `default` dan CLI operator dapat memprovisioning tenant lain. Uji layanan membuktikan pemisahan dua tenant, tetapi belum merupakan
 validasi isolasi SaaS produksi.
 
 `core/kernel.mjs` mendaftarkan layanan bernama dengan izin wajib. Pemanggilan
@@ -83,7 +82,4 @@ Pemeriksaan Chromium manual otomatis pada onboarding mencakup desktop dan ponsel
 setup, instalasi katalog, pencarian, pengaturan, worker, dan fallback offline.
 Instalasi standalone pada perangkat nyata belum diverifikasi.
 
-Langkah berikutnya: tetapkan kontrak bisnis modul pertama,
-provisioning tenant, pengelolaan/perubahan peran dan reset kata sandi, lifecycle
-paket bertanda tangan beserta rollback kode, dan adapter MCP dengan otorisasi serta
-konfirmasi tindakan berbahaya. Belum ada transaksi POS, stok, pelanggan, atau faktur.
+Langkah berikutnya: tetapkan kontrak bisnis modul pertama, isolasi dan format paket executable bila diperlukan, serta adapter MCP dengan otorisasi dan konfirmasi tindakan berbahaya. Belum ada transaksi POS, stok, pelanggan, atau faktur.

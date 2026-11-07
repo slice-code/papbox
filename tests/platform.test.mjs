@@ -37,7 +37,7 @@ test('HTTP authentication, authorization, module lifecycle, CSRF, and persistenc
  await request('logout',{});cookie='';
  result=await request('login',{email:'member@example.com',password:'member password 123'});assert.equal(result.status,200);cookie=result.cookie.split(';')[0];
  assert.equal((await request('services/users.list',{})).status,403);
- assert.deepEqual((await request('services/launcher.read',{})).data,[]);
+ assert.deepEqual((await request('services/launcher.read',{})).data.map(a=>a.id),['account']);
  assert.equal((await request('services/apps.change',{id:'pos',action:'install',approved:true})).status,403);
  const page=await fetch(base+'/');assert.equal(page.status,200);assert.match(await page.text(),/PAPbox/);
  for(const asset of ['/manifest.webmanifest','/sw.js','/offline.html','/icon-192.png','/icon-512.png'])assert.equal((await fetch(base+asset)).status,200);

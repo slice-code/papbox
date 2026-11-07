@@ -7,6 +7,8 @@ server wajib terkoneksi PostgreSQL; kegagalan koneksi tidak dialihkan ke JSON.
 
 ## Menjalankan lokal
 
+Lihat juga [panduan sistem utama](SYSTEM.md) untuk provisioning tenant, pemulihan akun, sesi bersama, dan paket bertanda tangan.
+
 Prasyarat: Git, Node.js 24 (diuji 24.22.1), npm, Docker Engine, dan Docker
 Compose v2 dengan dukungan `--wait`. Jalankan semua perintah dari root checkout
 PAPbox. Untuk checkout baru:
@@ -65,6 +67,9 @@ File init harus dapat dibaca pengguna postgres di container (mode 0644).
 | `installed_modules` | Versi dan status modul per tenant |
 | `menu_overrides` | Nama, urutan, visibilitas menu per tenant |
 | `audit_events` | Aktivitas dengan FK gabungan tenant/pengguna dan indeks waktu |
+| `sessions` | Hash token, versi autentikasi, expiry; RLS per tenant |
+| `password_resets` | Hash token reset sekali pakai dan expiry; RLS per tenant |
+| `auth_rate_limits` | Counter alamat koneksi yang di-hash, global untuk semua instance |
 | `schema_migrations` | Versi, checksum SHA-256, waktu penerapan |
 
 Tabel bisnis berikutnya memakai `tenant_id NOT NULL`, FK tenant, PK atau UNIQUE
@@ -103,8 +108,7 @@ kecil: pengguna, konfigurasi menu, dan modul dimuat per tenant, sementara audit
 dibatasi 20 entri terbaru. Audit lengkap tetap berada di database. Ini sesuai
 metadata platform awal; modul bisnis berskala besar harus memakai repository SQL
 khusus, query berhalaman, dan transaksi domain, bukan memuat seluruh tabel.
-Sesi web masih di memori; deployment multi-instance memerlukan session store
-bersama. Pemeriksaan ini bukan sertifikasi keamanan SaaS produksi.
+Sesi web dan token reset kini disimpan bersama pada PostgreSQL. Detail lifecycle dan prosedur operator ada di [SYSTEM.md](SYSTEM.md). Pemeriksaan ini bukan sertifikasi keamanan SaaS produksi.
 
 ## Migrasi
 

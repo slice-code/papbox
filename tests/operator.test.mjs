@@ -1,0 +1,25 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtemp,rm,writeFile,readFile } from 'node:fs/promises';
+import { generateKeyPairSync } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
+import { Store } from '../core/store.mjs';
+import { Identity } from '../system/identity.mjs';
+import { inspectPackage } from '../system/packages.mjs';
+test('operator CLI provisions without overwriting, recovers credentials, and signs declarative packages',async t=>{
+ const dir=await mkdtemp('/tmp/papbox-operator-');t.after(()=>rm(dir,{recursive:true,force:true}));
+ const root=new URL('../',import.meta.url),path=dir+'/data.json';
+ const run=(file,args,input)=>spawnSync(process.execPath,[new URL('../scripts/'+file,import.meta.url).pathname,...args],{cwd:root,env:{...process.env,DATABASE_URL:'',PAPBOX_DATA:path},input,encoding:'utf8'});
+ const args=['--id','operator','--name','Operator tenant','--email','admin@example.com','--admin-name','Admin'];
+ let result=run('tenant.mjs',args,'original test password\n');assert.equal(result.status,0,result.stderr);assert(!result.stdout.includes('original test password'));
+ const store=new Store(path),identity=new Identity(store),oldToken=await identity.login('operator','admin@example.com','original test password');
+ result=run('tenant.mjs',args,'overwrite test password\n');assert.notEqual(result.status,0);
+ assert.equal((await identity.resolve(oldToken)).user.email,'admin@example.com');
+ result=run('recover-account.mjs',['--tenant','operator','--email','admin@example.com'],'replacement test password\n');assert.equal(result.status,0,result.stderr);assert(!result.stdout.includes('replacement test password'));
+ assert.equal(await identity.resolve(oldToken),null);await identity.login('operator','admin@example.com','replacement test password');
+ const {privateKey,publicKey}=generateKeyPairSync('ed25519');
+ await writeFile(dir+'/private.pem',privateKey.export({format:'pem',type:'pkcs8'}),{mode:0o600});
+ result=run('sign-package.mjs',['--manifest',new URL('../examples/notes.manifest.json',import.meta.url).pathname,'--key',dir+'/private.pem','--publisher','operator','--out',dir+'/bundle.json']);assert.equal(result.status,0,result.stderr);
+ assert.equal(inspectPackage(JSON.parse(await readFile(dir+'/bundle.json','utf8')),{operator:publicKey.export({format:'pem',type:'spki'})}).manifest.id,'notes');
+ result=run('sign-package.mjs',['--manifest',new URL('../examples/notes.manifest.json',import.meta.url).pathname,'--key',dir+'/private.pem','--publisher','operator','--out',dir+'/bundle.json']);assert.notEqual(result.status,0);
+});
