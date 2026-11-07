@@ -65,3 +65,12 @@ A module manifest declares app identity, display name, icon reference, routes, p
 ![Approved PAPbox desktop launcher](Dasbor%20Launcher%20PAPbox%20Pastel.png)
 
 These two images are the source of truth for the initial launcher visual direction. Changes to the core layout should be proposed for owner approval rather than silently replacing these references.
+
+## PWA behavior (approved requirement)
+- The approved launcher is installable on supported mobile and desktop browsers via a Web App Manifest, app icons, and standalone display mode.
+- Provide a service worker owned by the PAPbox web runtime, with versioned cache names, offline fallback, and predictable update activation.
+- Cache only public static assets by default; never indiscriminately cache authenticated API responses, tenant data, or secrets.
+- Modules may declare optional offline assets and synchronization policies; do not promise full offline operation for server-dependent modules.
+- Provide clear connection, update, and synchronization status without cluttering the home launcher.
+- Keep the same icon grid, navigation model, and responsive design in browser and installed PWA mode.
+- Require HTTPS in production; do not imply that PWA is a native APK or that install prompts work identically across browsers.
