@@ -39,6 +39,7 @@ PAPBOX_PLAYWRIGHT_MODULE=/tmp/papbox-browser/node_modules/playwright-core/index.
 Chromium harus sudah terpasang dari sumber resmi. Skrip memakai profile/data dan
 salinan aset sementara, bukan akun/data pengguna. Ia memeriksa peran khusus,
 form CRUD model, enrollment MFA dan recovery login, persetujuan MCP melalui UI,
+unduhan backup dari Pengaturan beserta isi lengkap dan header anti-cache,
 layout ponsel, pergantian service worker tanpa cache privat, serta fallback offline.
 Screenshot fixture ada di `/tmp/papbox-core-mobile.png`.
 

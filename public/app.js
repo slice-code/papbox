@@ -69,7 +69,7 @@ async function open(a){
   const menus=await service('menus.list');p.append(el('p',{class:'muted'},'Atur nama, urutan, dan visibilitas. Menyembunyikan menu tidak mengubah izin akses.'));
   for(const item of menus){const row=form([field('Nama','name','text',item.name),field('Urutan','order','number',String(item.order)),el('label',{},'Sembunyikan',el('input',{name:'hidden',type:'checkbox',checked:!!item.hidden}))],async data=>{await service('menus.save',{id:item.id,name:data.name,order:Number(data.order),hidden:data.hidden==='on'});message('Menu disimpan');});row.className='menu-row';if(!can('menus.update')){row.querySelectorAll('input,button').forEach(node=>node.disabled=true);}p.append(row);}
  }else if(a.id==='settings'){
-  const data=await service('settings.list');if(can('settings.update'))p.append(form([field('Nama ruang kerja','name','text',data.name)],async input=>{await service('settings.save',input);message('Pengaturan disimpan');}));else p.append(el('p',{},data.name));p.append(el('h2',{},'Aktivitas administrator'));
+  const data=await service('settings.list');if(can('settings.update'))p.append(form([field('Nama ruang kerja','name','text',data.name)],async input=>{await service('settings.save',input);message('Pengaturan disimpan');}));else p.append(el('p',{},data.name));if(can('backups.export'))backupPanel(p);p.append(el('h2',{},'Aktivitas administrator'));
   for(const entry of data.audit)p.append(el('p',{class:'muted'},new Date(entry.at).toLocaleString('id-ID')+' · '+entry.action));
  }else{const app=await service('apps.open',{id:a.id});p.append(el('p',{},app.description || 'Modul fondasi.'),el('p',{class:'module-content'},app.content || 'Aplikasi terdaftar melalui registri modul. Fitur transaksi bisnis akan dibangun pada tahap berikutnya.'));if(app.model)await recordsPanel(p,app);}
 }
@@ -150,4 +150,17 @@ async function mfaPanel(p){
    const result=await service('account.mfa-confirm',values);dialog.close();await init();secretDialog('Simpan kode pemulihan',[el('p',{},'Kode ditampilkan sekali. Simpan secara privat. Gunakan kode authenticator berikutnya atau satu recovery code untuk login.'),el('textarea',{readonly:'',rows:'11'},result.recoveryCodes.join('\n'))]);
   },'Konfirmasi MFA')]);
  },'Daftarkan MFA'));
+}
+
+function backupPanel(p){
+ p.append(el('h2',{},'Backup data'),el('p',{},'Unduh backup lengkap tenant ini, termasuk data aplikasi, pengguna, pengaturan, dan audit.'),el('p',{class:'muted'},'File berisi data sensitif. Simpan secara privat dan amankan bersama backup kunci MFA secara terpisah. Pemulihan penuh dilakukan oleh operator ke tenant yang belum ada.'));
+ const node=form([field('Kata sandi untuk backup','currentPassword','password'),el('label',{},'Kode MFA atau recovery untuk backup (jika aktif)',el('input',{name:'code',maxlength:'32',autocomplete:'one-time-code'}))],async input=>{
+  if(!confirm('Unduh seluruh data tenant ini sebagai file backup sensitif?'))return;
+  try{
+   const response=await fetch('/api/services/backups.export',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...input,approved:true})});
+   if(!response.ok){const error=await response.json();if(response.status===401)await init();throw Error(error.error);}
+   const blob=await response.blob(),url=URL.createObjectURL(blob),filename=/filename="([^"]+)"/.exec(response.headers.get('Content-Disposition')||'')?.[1]||'papbox-backup.json';
+   const link=el('a',{href:url,download:filename});document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);message('Backup berhasil diunduh. Simpan di lokasi privat.');
+  }finally{node.reset();}
+ },'Unduh backup');p.append(node);
 }

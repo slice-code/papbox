@@ -104,7 +104,13 @@ export function createApp({ assetRoot=new URL('./public/',import.meta.url), mail
         validateInput(input,descriptor.input);input={...input,module:id};service='records.'+action;
       }
       if(!service)throw new Fault(404,'Tidak ditemukan');
+      if(service==='backups.export' && context.permissions.includes('backups.export')){
+        const key='backup:'+resolved.tenant+':'+user.id,now=Date.now();
+        if(store.allowAuth){if(!await store.allowAuth(digest(key),authLimit))throw new Fault(429,'Terlalu banyak percobaan backup; coba lagi dalam satu menit');}
+        else{const previous=attempts.get(key);if(previous&&now-previous.start<60000){if(previous.count>=authLimit)throw new Fault(429,'Terlalu banyak percobaan backup; coba lagi dalam satu menit');previous.count++;}else attempts.set(key,{start:now,count:1});}
+      }
       const result=await kernel.invoke(service,context,input);
+      if(service==='backups.export')return send(200,result,{'Content-Disposition':`attachment; filename="papbox-${resolved.tenant}-${new Date().toISOString().replace(/[:.]/g,'-')}.json"`});
       send(200,result);
     } catch (error) { if(!error.status)logger({event:'http.error',requestId,code:typeof error.code==='string'?error.code:'INTERNAL'}); send(error.status || 500,{error:error.status ? error.message : 'Kesalahan server'}); }
   });

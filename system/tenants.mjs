@@ -12,12 +12,12 @@ export async function tenantStatus(store,id,status,confirm){
   tenant.status=status;audit(tenant,tenant.users[0].id,'operator.tenant-'+status);return {ok:true,status};
  },id);
 }
+export function makeBackup(id,data){const copy=JSON.parse(JSON.stringify(data));return {format:'papbox.tenant-backup/1',tenant:id,exportedAt:new Date().toISOString(),sha256:backupDigest(copy),data:copy};}
 export async function exportTenant(store,id){
  if(typeof id!=='string'||!tenantPattern.test(id))throw new Fault(400,'ID tenant tidak valid');
  const data=store.exportTenant?await store.exportTenant(id):(await store.read()).tenants[id];
  if(!data)throw new Fault(404,'Tenant tidak ditemukan');
- const copy=JSON.parse(JSON.stringify(data));
- return {format:'papbox.tenant-backup/1',tenant:id,exportedAt:new Date().toISOString(),sha256:backupDigest(copy),data:copy};
+ return makeBackup(id,data);
 }
 export function verifyBackup(backup){
  if(backup?.format!=='papbox.tenant-backup/1'||typeof backup.tenant!=='string'||!tenantPattern.test(backup.tenant)||!backup.data||typeof backup.data!=='object'||Array.isArray(backup.data)||!Array.isArray(backup.data.users)||!backup.data.users.length||!Array.isArray(backup.data.audit)||!backup.data.settings||!backup.data.modules||!backup.data.menus||backup.sha256!==backupDigest(backup.data))throw new Fault(400,'Backup tidak valid atau checksum tidak cocok');

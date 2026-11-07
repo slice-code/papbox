@@ -1,3 +1,4 @@
+import {makeBackup} from './tenants.mjs';
 import { randomUUID } from 'node:crypto';
 import { Fault } from '../core/kernel.mjs';
 import { catalog, systemApps } from '../modules/catalog.mjs';
@@ -110,6 +111,14 @@ export function registerSystem(kernel, store, {trustedKeys={},mfa=new Mfa()}={})
     user.hash=passwordHash(i.password);revokeUser(t,user);return {ok:true};
   });
   register('account.revoke-sessions',(t,i,ctx)=>{revokeUser(t,t.users.find(u=>u.id===ctx.user));return {ok:true};});
+  register('backups.export',async(t,i,ctx,tx,actor)=>{
+    if(!verify(i.currentPassword,actor.hash))throw new Fault(400,'Kata sandi saat ini salah');
+    if(!mfa.verify(actor,ctx.tenant,i.code))throw new Fault(400,'Kode MFA atau recovery tidak valid');
+    const snapshot=tx.client?await store.exportSnapshot(tx.client,ctx.tenant):structuredClone(t);
+    // Keep factor state from this transaction, including a consumed recovery code.
+    snapshot.users=structuredClone(t.users);
+    return makeBackup(ctx.tenant,snapshot);
+  });
   register('settings.list', t => ({ ...t.settings, audit:t.audit.slice(-20).reverse() }));
   register('settings.save', (t,i) => { t.settings = { name:text(i.name), locale:'id-ID' }; return t.settings; });
 

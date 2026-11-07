@@ -6,7 +6,7 @@ import {registerSystem,roles} from '../../system/services.mjs';
 import {Identity,provisionTenant} from '../../system/identity.mjs';
 import {Mfa,totp} from '../../system/mfa.mjs';
 import {canonical} from '../../system/packages.mjs';
-import {tenantStatus,exportTenant,restoreTenant,purgeTenant} from '../../system/tenants.mjs';
+import {tenantStatus,exportTenant,restoreTenant,purgeTenant,verifyBackup} from '../../system/tenants.mjs';
 import {McpAdapter} from '../../adapters/mcp/adapter.mjs';
 import {createApp} from '../../server.mjs';
 export async function operationsContract(store,{operatorStore=store}={}){
@@ -44,6 +44,21 @@ export async function operationsContract(store,{operatorStore=store}={}){
  now+=30000;const current=totp(registration.secret,Math.floor(now/30000));const mfaSession=await identity.login('lifecycle','admin@example.com','operations password 123',current);
  await assert.rejects(identity.login('lifecycle','admin@example.com','operations password 123',current),{status:401});
  await identity.login('lifecycle','admin@example.com','operations password 123',recovery.recoveryCodes[0]);await assert.rejects(identity.login('lifecycle','admin@example.com','operations password 123',recovery.recoveryCodes[0]),{status:401});
+ for(let index=0;index<25;index++)await call('settings.save',{name:'Backup tenant '+index});
+ await assert.rejects(call('backups.export',{currentPassword:'operations password 123'}),{status:400});
+ await assert.rejects(call('backups.export',{currentPassword:'wrong password 123',approved:true}),{status:400});
+ await assert.rejects(call('backups.export',{currentPassword:'operations password 123',approved:true}),{status:400});
+ await assert.rejects(kernel.invoke('backups.export',{...ctx,permissions:['launcher.read','settings.read']},{currentPassword:'operations password 123',approved:true}),{status:403});
+ const backupApp=createApp({store,trustedKeys,mfa});backupApp.server.listen(0,'127.0.0.1');await once(backupApp.server,'listening');
+ try{
+  const endpoint='http://127.0.0.1:'+backupApp.server.address().port+'/api/services/backups.export';
+  const headers={Cookie:'papbox='+mfaSession,'Content-Type':'application/json'};
+  const response=await fetch(endpoint,{method:'POST',headers,body:JSON.stringify({currentPassword:'operations password 123',code:recovery.recoveryCodes[8],approved:true})});
+  assert.equal(response.status,200);assert.match(response.headers.get('content-disposition'),/attachment; filename="papbox-lifecycle-/);assert.equal(response.headers.get('cache-control'),'no-store');
+  const downloaded=await response.json();verifyBackup(downloaded);assert.equal(downloaded.tenant,'lifecycle');assert(downloaded.data.audit.length>20);assert.equal(Object.values(downloaded.data.records.journal)[0].data.note,'Approved by human');
+  assert.equal(downloaded.data.users[0].security.mfa.recoveryHashes.length,8);assert.equal((await store.read('lifecycle')).tenants.lifecycle.users[0].security.mfa.recoveryHashes.length,8);
+  const forbidden=await fetch(endpoint,{method:'POST',headers,body:JSON.stringify({currentPassword:'operations password 123',approved:true,tenant:'other'})});assert.equal(forbidden.status,400);
+ }finally{backupApp.server.closeAllConnections();await new Promise(r=>backupApp.server.close(r));}
  await tenantStatus(store,'lifecycle','suspended','lifecycle');assert.equal(await identity.resolve(mfaSession),null);
  await assert.rejects(identity.login('lifecycle','admin@example.com','operations password 123',recovery.recoveryCodes[1]),{status:401});
  await tenantStatus(store,'lifecycle','archived','lifecycle');const backup=await exportTenant(store,'lifecycle');

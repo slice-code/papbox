@@ -2,7 +2,7 @@ import { Fault } from '../core/kernel.mjs';
 export const systemPermissions={
  'launcher.read':['all'],'users.read':['all'],'users.create':['all'],'users.update':['all'],'users.reset':['all'],
  'apps.read':['all'],'apps.install':['all'],'apps.enable':['all'],'apps.disable':['all'],'apps.uninstall':['all'],'apps.rollback':['all'],
- 'menus.read':['all'],'menus.update':['all'],'settings.read':['all'],'settings.update':['all'],
+ 'backups.export':['all'],'menus.read':['all'],'menus.update':['all'],'settings.read':['all'],'settings.update':['all'],
  'approvals.read':['all'],'approvals.approve':['all'],'roles.read':['all'],'roles.manage':['all'],'roles.assign':['all'],'contracts.read':['all']
 };
 export const baselineRoles={admin:['launcher.read',...Object.keys(systemPermissions)],member:['launcher.read']};

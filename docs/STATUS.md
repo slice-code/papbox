@@ -12,6 +12,7 @@
   pagination SQL, dan concurrency checks.
 - Paket deklaratif v1/v2 Ed25519, registry kepercayaan, model CRUD, pemeriksaan
   kompatibilitas data/dependensi, serta update/rollback yang gagal secara atomik.
+- Backup tenant melalui Pengaturan dengan izin khusus, password/MFA dan unduhan privat.
 - Provisioning, suspend/archive/activate tenant, backup lengkap per tenant,
   purge dengan backup cocok, dan restore yang tidak menghidupkan sesi lama.
 - Adapter MCP stdio, penemuan tool berdasarkan izin, resource kontrak, serta

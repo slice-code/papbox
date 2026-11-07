@@ -35,13 +35,31 @@ aksi operator pada audit tenant.
 
 ## Backup tenant, penghapusan, dan restore
 
+### Backup melalui Pengaturan
+
+Buka **Pengaturan → Backup data → Unduh backup**. Fitur membutuhkan izin
+`settings.read` untuk membuka Pengaturan dan `backups.export` untuk mengunduh;
+admin bawaan memilikinya. Tombol tidak ditampilkan bagi pengguna tanpa izin.
+Masukkan kata sandi akun saat ini dan kode MFA/recovery baru bila MFA aktif,
+lalu konfirmasikan unduhan. Percobaan dibatasi per akun/tenant; respons tidak
+dicache dan tidak tersedia lewat tool MCP.
+
+File JSON hanya berisi tenant dari sesi login, meliputi seluruh data modul,
+pengguna, peran, menu, pengaturan, dan audit lengkap. Snapshot dibuat dalam
+transaksi yang sama dengan verifikasi akun. Recovery code yang dipakai untuk
+verifikasi sudah dianggap terpakai di backup. Aktivitas unduhan dicatat dalam
+audit setelah snapshot dibuat. Tidak ada pemilihan tenant lain melalui input.
+Backup UI dapat dibuat ketika tenant aktif; unduhan tidak mengubah data bisnis.
+Pemulihan penuh menggunakan prosedur operator di bawah ke ID tenant yang belum
+ada. Tombol unduh tidak menimpa tenant aktif atau memulihkan sesi lama.
+
 File backup berisi seluruh metadata, role, model records, audit lengkap, hash
 password, serta secret MFA terenkripsi. File sangat sensitif: mode 0600, simpan
 terenkripsi di luar mesin, dan sertakan backup kunci enkripsi MFA secara terpisah.
 Tidak ada plaintext token sesi/password di backup. SHA-256 memeriksa integritas,
 bukan membuktikan identitas pembuat atau mengenkripsi file.
 
-Arsipkan terlebih dahulu agar penulisan aplikasi berhenti, lalu:
+Untuk backup CLI yang akan dipakai sebagai prasyarat purge, arsipkan terlebih dahulu agar penulisan aplikasi berhenti, lalu:
 
 ```sh
 npm run tenant:operate -- --action export --id toko-satu --file /secure/backups/toko-satu.json
