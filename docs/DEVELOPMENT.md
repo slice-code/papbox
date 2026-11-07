@@ -1,14 +1,17 @@
 # Pengembangan PAPbox 0.1
 
 Versi ini adalah fondasi platform yang dapat dijalankan, bukan SaaS produksi.
-Tidak ada dependensi npm untuk kernel, aplikasi sistem, atau frontend.
+Kernel, aplikasi sistem, dan frontend memakai API native. Adapter PostgreSQL memakai driver `pg` yang disetujui pemilik; lihat [panduan database](DATABASE.md).
 
 ## Menjalankan
+
+Untuk setup PostgreSQL lengkap, mulai dari [panduan database](DATABASE.md), termasuk Docker, `.env`, migrasi, dan pemeriksaan kesiapan. Perintah singkat di bawah mengasumsikan database sudah siap, atau `DATABASE_URL` tidak diset untuk mode JSON.
 
 Diuji dengan Node.js 24.22.1. Versi minimum resmi belum diputuskan.
 
 ```sh
 cd /workspace/papbox
+npm ci
 npm start
 ```
 
@@ -28,7 +31,7 @@ npm run check
 ```
 
 Pengujian menggunakan penyimpanan sementara dan tidak mengubah data aplikasi.
-Data lokal ada di `storage/data.json` (diabaikan Git), dengan kata sandi scrypt
+Jika `DATABASE_URL` diset, server memakai PostgreSQL dan membutuhkan migrasi terlebih dahulu. Instruksi di paragraf ini hanya untuk adapter JSON. Data JSON lokal ada di `storage/data.json` (diabaikan Git), dengan kata sandi scrypt
 bersalt. Sesi hanya ada dalam memori, kedaluwarsa setelah delapan jam, dan hilang
 saat server restart. Backup file data hanya saat server dihentikan. Jalankan satu
 proses server: antrean penulisan dan rename atomik bukan penguncian multiproses.
@@ -51,7 +54,7 @@ tangan paket. Penghapusan saat ini menghapus registrasi/menu saja.
 ## Kontrak implementasi awal
 
 Ini pilihan sementara untuk implementasi lokal, bukan keputusan arsitektur final:
-JSON sebagai adapter penyimpanan, DOM browser native sebagai rendering, dan
+PostgreSQL sebagai adapter utama (JSON untuk tes ringan), DOM browser native sebagai rendering, dan
 identitas tenant dari sesi server. Tidak ada API membuat tenant; setup membuat
 `default`. Uji layanan membuktikan pemisahan dua tenant, tetapi belum merupakan
 validasi isolasi SaaS produksi.
@@ -80,7 +83,7 @@ Pemeriksaan Chromium manual otomatis pada onboarding mencakup desktop dan ponsel
 setup, instalasi katalog, pencarian, pengaturan, worker, dan fallback offline.
 Instalasi standalone pada perangkat nyata belum diverifikasi.
 
-Langkah berikutnya: tetapkan kontrak bisnis modul pertama, adapter database,
+Langkah berikutnya: tetapkan kontrak bisnis modul pertama,
 provisioning tenant, pengelolaan/perubahan peran dan reset kata sandi, lifecycle
 paket bertanda tangan beserta rollback kode, dan adapter MCP dengan otorisasi serta
 konfirmasi tindakan berbahaya. Belum ada transaksi POS, stok, pelanggan, atau faktur.

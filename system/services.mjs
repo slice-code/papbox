@@ -12,9 +12,9 @@ export function registerSystem(kernel, store) {
     const result = handler(tenant, input, ctx);
     if (!name.endsWith('.list') && name !== 'launcher.read') tenant.audit.push({ at: new Date().toISOString(), user: ctx.user, action: name });
     return result;
-  }));
+  }, ctx.tenant));
   kernel.register('launcher.read', 'launcher.read', async ctx => {
-    const state = await store.read(); const t = state.tenants[ctx.tenant];
+    const state = await store.read(ctx.tenant); const t = state.tenants[ctx.tenant];
     if (!t) throw new Fault(401, 'Sesi tidak valid');
     return [...catalog.filter(a => t.modules[a.id]?.enabled), ...systemApps.filter(a => ctx.permissions.includes(a.permission))]
       .map((a, index) => ({ ...a, ...t.menus[a.id], order: t.menus[a.id]?.order ?? index }))

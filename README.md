@@ -6,7 +6,7 @@
 
 ## Mulai pengembangan
 
-Gunakan Node.js 24 (versi yang telah diuji), lalu jalankan `npm start`. Buka aplikasi pada port 3000 dan buat administrator pertama; tidak ada akun bawaan. Tidak perlu `npm install`. Jalankan `npm test` untuk pengujian dan `npm run check` untuk pemeriksaan sintaks.
+Gunakan Node.js 24 (versi yang telah diuji), lalu `npm ci`. Untuk pengembangan dengan PostgreSQL, ikuti [panduan database](docs/DATABASE.md): siapkan `.env`, jalankan `docker compose up -d --wait`, `npm run db:migrate`, lalu `npm start`. Adapter JSON tetap tersedia bila `DATABASE_URL` tidak diatur. Buka aplikasi pada port 3000 dan buat administrator pertama; tidak ada akun bawaan. Jalankan `npm test`, `npm run test:postgres`, dan `npm run check` sesuai panduan.
 
 Launcher, autentikasi, pengelolaan katalog modul, menu, pengguna, pengaturan, dan fondasi PWA sudah tersedia. POS, Inventory, CRM, dan Invoice belum menyediakan transaksi bisnis. Lihat [panduan pengembangan](docs/DEVELOPMENT.md) untuk kontrak, konfigurasi, keamanan, dan batasan versi awal.
 
@@ -14,7 +14,7 @@ Launcher, autentikasi, pengelolaan katalog modul, menu, pengguna, pengaturan, da
 Build SaaS applications by installing modules into one simple, familiar app launcher. PAPbox favors ease of use over dense dashboards and keeps its kernel small.
 
 ## Principles
-- **Node.js native:** JavaScript ES modules and built-in runtime APIs; no mandatory third-party npm packages in the core.
+- **Node.js native:** JavaScript ES modules and built-in runtime APIs; PostgreSQL uses the separately isolated `pg` adapter.
 - **Modular MVC:** modules declare routes, controllers, views, services, menus, permissions, and events.
 - **AI-native:** optional built-in Model Context Protocol (MCP) server with permission-aware tools, resources, and prompts.
 - **Shared business services:** HTTP, REST, CLI, and MCP invoke the same application services.

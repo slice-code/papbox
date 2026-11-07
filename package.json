@@ -1,1 +1,17 @@
-{"name":"papbox","version":"0.1.0","private":true,"type":"module","scripts":{"start":"node server.mjs","test":"node --test","check":"node --check server.mjs && node --check public/app.js"}}
+{
+  "name": "papbox",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --env-file-if-exists=.env server.mjs",
+    "test": "node --test",
+    "check": "node --check server.mjs && node --check public/app.js",
+    "db:migrate": "node --env-file-if-exists=.env scripts/migrate.mjs",
+    "test:postgres": "PAPBOX_REQUIRE_POSTGRES_TESTS=1 node --env-file-if-exists=.env --test tests/postgres.test.mjs",
+    "db:import-json": "node --env-file-if-exists=.env scripts/import-json.mjs"
+  },
+  "dependencies": {
+    "pg": "^8.23.1"
+  }
+}
