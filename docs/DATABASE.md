@@ -70,6 +70,9 @@ File init harus dapat dibaca pengguna postgres di container (mode 0644).
 | `sessions` | Hash token, versi autentikasi, expiry; RLS per tenant |
 | `password_resets` | Hash token reset sekali pakai dan expiry; RLS per tenant |
 | `auth_rate_limits` | Counter alamat koneksi yang di-hash, global untuk semua instance |
+| `roles` | Peran tenant dan grant per aksi/scope |
+| `module_records` | Data model, pemilik, revisi; FK tenant/modul/pengguna dan RLS |
+| `approvals` | Permintaan mutasi AI, keputusan manusia, expiry dan single-use |
 | `schema_migrations` | Versi, checksum SHA-256, waktu penerapan |
 
 Tabel bisnis berikutnya memakai `tenant_id NOT NULL`, FK tenant, PK atau UNIQUE
@@ -108,7 +111,7 @@ kecil: pengguna, konfigurasi menu, dan modul dimuat per tenant, sementara audit
 dibatasi 20 entri terbaru. Audit lengkap tetap berada di database. Ini sesuai
 metadata platform awal; modul bisnis berskala besar harus memakai repository SQL
 khusus, query berhalaman, dan transaksi domain, bukan memuat seluruh tabel.
-Sesi web dan token reset kini disimpan bersama pada PostgreSQL. Detail lifecycle dan prosedur operator ada di [SYSTEM.md](SYSTEM.md). Pemeriksaan ini bukan sertifikasi keamanan SaaS produksi.
+Sesi web dan token reset kini disimpan bersama pada PostgreSQL. MFA dienkripsi pada kolom `users.security`. Detail lifecycle dan prosedur operator ada di [OPERATIONS.md](OPERATIONS.md). Pemeriksaan ini bukan sertifikasi keamanan SaaS produksi.
 
 ## Migrasi
 
@@ -173,3 +176,5 @@ Untuk server remote, wajibkan TLS dengan sertifikat CA yang diverifikasi dan
 hostname sesuai; jangan gunakan `rejectUnauthorized:false`. Tetapkan kebijakan
 backup/PITR, monitoring, rotasi kredensial, kapasitas pool, dan provisioning tenant
 sebelum deployment produksi. Compose ini ditujukan untuk pengembangan lokal.
+
+Backup per tenant, purge terkontrol, dan restore yang diuji ada di [OPERATIONS.md](OPERATIONS.md). Query model memakai pagination SQL dan filter owner; grant peran serta approval juga dilindungi RLS. Jangan mengubah migrasi 001–005 yang telah diterapkan; tambahkan migrasi berikutnya.

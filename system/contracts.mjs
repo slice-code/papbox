@@ -1,0 +1,39 @@
+import { systemPermissions } from './access.mjs';
+const string={type:'string',minLength:1,maxLength:160},json={type:'json'},bool={type:'boolean'},id={type:'string',minLength:1,maxLength:63},revision={type:'integer',minimum:1};
+const object=(properties={},required=[])=>({type:'object',properties,required,additionalProperties:false});
+const specs={
+ 'launcher.read':['launcher.read',false,{}],
+ 'apps.list':['apps.read',false,{}],
+ 'apps.open':['launcher.read',false,{id},['id']],
+ 'apps.change':['apps.read',true,{id,action:{type:'string',enum:['install','enable','disable','uninstall']},approved:bool},['id','action']],
+ 'packages.inspect':['apps.read',false,{bundle:json},['bundle']],
+ 'packages.install':['apps.install',true,{bundle:json,approved:bool},['bundle','approved'],true],
+ 'packages.rollback':['apps.rollback',true,{id,approved:bool},['id','approved'],true],
+ 'menus.list':['menus.read',false,{}],
+ 'menus.save':['menus.update',true,{id,name:string,order:{type:'integer',minimum:0,maximum:100},hidden:bool},['id','name','order','hidden']],
+ 'users.list':['users.read',false,{}],
+ 'users.create':['users.create',true,{name:string,email:string,role:id,password:{type:'string',minLength:12,maxLength:256}},['name','email','role','password']],
+ 'users.update':['users.update',true,{id:string,name:string,email:string,role:id,active:bool},['id','name','email','role','active']],
+ 'users.reset':['users.reset',true,{id:string,approved:bool},['id','approved'],true],
+ 'account.change-password':['launcher.read',true,{currentPassword:{type:'string',maxLength:256},password:{type:'string',minLength:12,maxLength:256}},['currentPassword','password']],
+ 'account.revoke-sessions':['launcher.read',true,{}],
+ 'settings.list':['settings.read',false,{}],
+ 'settings.save':['settings.update',true,{name:string},['name']],
+ 'roles.list':['roles.read',false,{}],
+ 'roles.save':['roles.manage',true,{id,name:string,permissions:json,approved:bool},['id','name','permissions','approved'],true],
+ 'roles.delete':['roles.manage',true,{id,approved:bool},['id','approved'],true],
+ 'account.mfa-status':['launcher.read',false,{}],
+ 'account.mfa-begin':['launcher.read',true,{currentPassword:{type:'string',minLength:12,maxLength:256}},['currentPassword']],
+ 'account.mfa-confirm':['launcher.read',true,{code:{type:'string',minLength:6,maxLength:6}},['code']],
+ 'account.mfa-disable':['launcher.read',true,{currentPassword:{type:'string',minLength:12,maxLength:256},code:string},['currentPassword','code']],
+ 'approvals.list':['approvals.read',false,{}],
+ 'approvals.request':['launcher.read',true,{service:string,input:json},['service','input']],
+ 'approvals.decide':['approvals.approve',true,{id:string,approved:bool},['id','approved']],
+ 'approvals.execute':['launcher.read',true,{id:string},['id']],
+ 'contracts.list':['contracts.read',false,{}],
+ 'records.list':['launcher.read',false,{module:id,limit:{type:'integer',minimum:1,maximum:100},cursor:{type:'string',maxLength:36}},['module']],
+ 'records.create':['launcher.read',true,{module:id,data:json},['module','data']],
+ 'records.update':['launcher.read',true,{module:id,id:string,revision,data:json},['module','id','revision','data']],
+ 'records.delete':['launcher.read',true,{module:id,id:string,revision,approved:bool},['module','id','revision','approved'],true]
+};
+export function systemContract(){return {id:'system',version:'1.1.0',api:1,dependencies:[],permissions:Object.entries(systemPermissions).map(([id,scopes])=>({id,scopes})),services:Object.entries(specs).map(([name,[permission,mutation,properties,required=[],confirmation=false]])=>({name,permission,mutation,confirmation,input:object(properties,required)})),routes:Object.keys(specs).map(service=>({method:'POST',path:'/api/services/'+service,service}))};}

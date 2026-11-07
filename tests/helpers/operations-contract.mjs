@@ -1,0 +1,67 @@
+import assert from 'node:assert/strict';
+import {generateKeyPairSync,sign} from 'node:crypto';
+import {once} from 'node:events';
+import {Kernel} from '../../core/kernel.mjs';
+import {registerSystem,roles} from '../../system/services.mjs';
+import {Identity,provisionTenant} from '../../system/identity.mjs';
+import {Mfa,totp} from '../../system/mfa.mjs';
+import {canonical} from '../../system/packages.mjs';
+import {tenantStatus,exportTenant,restoreTenant,purgeTenant} from '../../system/tenants.mjs';
+import {McpAdapter} from '../../adapters/mcp/adapter.mjs';
+import {createApp} from '../../server.mjs';
+export async function operationsContract(store,{operatorStore=store}={}){
+ const created=await provisionTenant(store,{tenant:'lifecycle',name:'Lifecycle',adminName:'Admin',email:'admin@example.com',password:'operations password 123'}),ctx={tenant:'lifecycle',user:created.user.id,permissions:roles.admin};
+ let now=Date.now();const mfa=new Mfa('11'.repeat(32),{now:()=>now}),identity=new Identity(store,{mfa,now:()=>now});
+ const {privateKey,publicKey}=generateKeyPairSync('ed25519'),trustedKeys={publisher:publicKey.export({type:'spki',format:'pem'})};
+ const payload={format:'papbox.module/2',publisher:'publisher',manifest:{id:'journal',version:'1.0.0',api:1,name:'Journal',icon:'J',color:'blue',description:'Journal data',content:'Data',model:{type:'object',properties:{note:{type:'string',minLength:1,maxLength:120}},required:['note'],additionalProperties:false},dependencies:{}}};
+ const bundle={...payload,signature:sign(null,Buffer.from(canonical(payload)),privateKey).toString('base64')};
+ const kernel=new Kernel();registerSystem(kernel,store,{trustedKeys,mfa});const call=(name,input={})=>kernel.invoke(name,ctx,input);
+ await call('packages.install',{bundle,approved:true});
+ await call('roles.save',{id:'journal-reader',name:'Journal reader',permissions:{'journal.open':'all','journal.records.read':'own'},approved:true});
+ const session=await identity.login('lifecycle','admin@example.com','operations password 123');
+ const adapter=new McpAdapter({kernel,identity,session:async()=>session,trustedKeys});let id=0;
+ const rpc=(method,params)=>adapter.handle({jsonrpc:'2.0',id:++id,method,params});
+ assert.equal((await rpc('initialize',{protocolVersion:'2025-03-26'})).result.serverInfo.name,'papbox');
+ const tools=(await rpc('tools/list')).result.tools;
+ assert(tools.some(tool=>tool.name==='journal.records.create'));assert(!tools.some(tool=>tool.name==='users.reset'));
+ const pendingResult=await rpc('tools/call',{name:'journal.records.create',arguments:{data:{note:'Approved by human'}}});
+ const approval=JSON.parse(pendingResult.result.content[0].text).approvalId;
+ assert.equal((await call('records.list',{module:'journal'})).items.length,0);
+ assert.equal((await rpc('tools/call',{name:'approvals.execute',arguments:{id:approval}})).result.isError,true);
+ await call('approvals.decide',{id:approval,approved:true});
+ assert.equal((await rpc('tools/call',{name:'approvals.execute',arguments:{id:approval}})).result.isError,false);
+ assert.equal((await call('records.list',{module:'journal'})).items.length,1);
+ assert.equal((await rpc('tools/call',{name:'approvals.execute',arguments:{id:approval}})).result.isError,true);
+ const rejected=JSON.parse((await rpc('tools/call',{name:'settings.save',arguments:{name:'Rejected'}})).result.content[0].text).approvalId;
+ await call('approvals.decide',{id:rejected,approved:false});assert.equal((await rpc('tools/call',{name:'approvals.execute',arguments:{id:rejected}})).result.isError,true);
+ assert.equal((await call('settings.list')).name,'Lifecycle');
+ const registration=await call('account.mfa-begin',{currentPassword:'operations password 123'});
+ assert(!JSON.stringify(await store.read('lifecycle')).includes(registration.secret));
+ const code=totp(registration.secret,Math.floor(now/30000));const recovery=await call('account.mfa-confirm',{code});assert.equal(recovery.recoveryCodes.length,10);
+ assert.equal(await identity.resolve(session),null);
+ await assert.rejects(identity.login('lifecycle','admin@example.com','operations password 123'),{status:401});
+ await assert.rejects(identity.login('lifecycle','admin@example.com','operations password 123',code),{status:401});
+ now+=30000;const current=totp(registration.secret,Math.floor(now/30000));const mfaSession=await identity.login('lifecycle','admin@example.com','operations password 123',current);
+ await assert.rejects(identity.login('lifecycle','admin@example.com','operations password 123',current),{status:401});
+ await identity.login('lifecycle','admin@example.com','operations password 123',recovery.recoveryCodes[0]);await assert.rejects(identity.login('lifecycle','admin@example.com','operations password 123',recovery.recoveryCodes[0]),{status:401});
+ await tenantStatus(store,'lifecycle','suspended','lifecycle');assert.equal(await identity.resolve(mfaSession),null);
+ await assert.rejects(identity.login('lifecycle','admin@example.com','operations password 123',recovery.recoveryCodes[1]),{status:401});
+ await tenantStatus(store,'lifecycle','archived','lifecycle');const backup=await exportTenant(store,'lifecycle');
+ await assert.rejects(purgeTenant(operatorStore,backup,'wrong'),{status:400});
+ await assert.rejects(restoreTenant(store,backup),{status:409});
+ const corrupt=structuredClone(backup);corrupt.data.settings.name='Tampered';await assert.rejects(restoreTenant(store,corrupt),{status:400});
+ if(operatorStore!==store){await assert.rejects(purgeTenant(store,backup,'lifecycle'),e=>e.code==='42501');assert((await store.read('lifecycle')).tenants.lifecycle);}
+ await purgeTenant(operatorStore,backup,'lifecycle');assert(!(await store.read('lifecycle')).tenants.lifecycle);
+ await restoreTenant(store,backup);assert.equal((await store.read('lifecycle')).tenants.lifecycle.status,'archived');
+ await tenantStatus(store,'lifecycle','active','lifecycle');assert.equal((await call('records.list',{module:'journal'})).items[0].data.note,'Approved by human');
+ const restored=await identity.login('lifecycle','admin@example.com','operations password 123',recovery.recoveryCodes[1]);assert(await identity.resolve(restored));
+ await call('account.mfa-disable',{currentPassword:'operations password 123',code:recovery.recoveryCodes[2]});assert.equal(await identity.resolve(restored),null);
+ await new Identity(store).login('lifecycle','admin@example.com','operations password 123');
+ const logs=[],app=createApp({store,trustedKeys,logger:entry=>logs.push(entry)});app.server.listen(0,'127.0.0.1');await once(app.server,'listening');
+ try{
+  const base='http://127.0.0.1:'+app.server.address().port;
+  assert.equal((await fetch(base+'/healthz')).status,200);assert.equal((await fetch(base+'/readyz')).status,200);
+  const response=await fetch(base+'/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tenant:'lifecycle',email:'admin@example.com',password:'operations password 123'})});assert.equal(response.status,200);assert(response.headers.get('x-request-id'));
+  const text=JSON.stringify(logs);assert(!text.includes('operations password'));assert(!text.includes(session));assert(logs.every(log=>log.requestId));
+ }finally{app.server.closeAllConnections();await new Promise(r=>app.server.close(r));}
+}

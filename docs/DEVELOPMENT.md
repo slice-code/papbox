@@ -67,8 +67,7 @@ layanan tanpa kata sandi atau payload privat.
 `system/services.mjs` menyediakan `launcher.read`, `apps.list/change`,
 `menus.list/save`, `users.list/create`, dan `settings.list/save`. HTTP adapter
 menggunakan `POST /api/services/<nama>` dan JSON. Aturan bisnis tidak ditempatkan
-pada handler HTTP. Adapter CLI/MCP dapat memakai kernel yang sama nanti, tetapi
-belum diimplementasikan dan tidak diekspos sebagai tool publik.
+pada handler HTTP. Operator CLI dan adapter MCP memakai layanan/kernel yang sama sesuai cakupannya; adapter MCP terbatas kini tersedia sesuai [MCP.md](MCP.md).
 
 `Store.transact` membuat snapshot, menjalankan perubahan, lalu menyimpan dengan
 rename atomik. Jika validasi/operasi gagal, perubahan tidak disimpan. Audit mutasi
@@ -82,4 +81,4 @@ Pemeriksaan Chromium manual otomatis pada onboarding mencakup desktop dan ponsel
 setup, instalasi katalog, pencarian, pengaturan, worker, dan fallback offline.
 Instalasi standalone pada perangkat nyata belum diverifikasi.
 
-Langkah berikutnya: tetapkan kontrak bisnis modul pertama, isolasi dan format paket executable bila diperlukan, serta adapter MCP dengan otorisasi dan konfirmasi tindakan berbahaya. Belum ada transaksi POS, stok, pelanggan, atau faktur.
+Langkah berikutnya: tetapkan kontrak bisnis modul pertama dan deployment operasional. Kontrak modul, izin granular, MFA, MCP dengan persetujuan UI, serta lifecycle/backup tenant kini tersedia; lihat [status implementasi](STATUS.md). SSO ditunda oleh pemilik dan paket executable belum didukung. Belum ada transaksi POS, stok, pelanggan, atau faktur.

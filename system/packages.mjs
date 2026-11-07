@@ -1,4 +1,5 @@
 import { createPublicKey, verify, createHash } from 'node:crypto';
+import { validateSchema,identifier,versionPattern } from '../core/contracts.mjs';
 import { Fault } from '../core/kernel.mjs';
 const colors=['blue','green','purple','orange','pink','slate'];
 export function canonical(value){
@@ -8,10 +9,11 @@ export function canonical(value){
 }
 const exact=(value,keys)=>value && typeof value==='object' && !Array.isArray(value) && Object.keys(value).length===keys.length && keys.every(key=>Object.hasOwn(value,key));
 export function inspectPackage(bundle, trustedKeys={}){
-  if(!exact(bundle,['format','publisher','manifest','signature']) || bundle.format!=='papbox.module/1' || typeof bundle.publisher!=='string' || !/^[a-z][a-z0-9_-]{0,62}$/.test(bundle.publisher) || typeof bundle.signature!=='string' || !/^[A-Za-z0-9+/]{86}==$/.test(bundle.signature))throw new Fault(400,'Format paket tidak valid');
+  if(!exact(bundle,['format','publisher','manifest','signature']) || !['papbox.module/1','papbox.module/2'].includes(bundle.format) || typeof bundle.publisher!=='string' || !/^[a-z][a-z0-9_-]{0,62}$/.test(bundle.publisher) || typeof bundle.signature!=='string' || !/^[A-Za-z0-9+/]{86}==$/.test(bundle.signature))throw new Fault(400,'Format paket tidak valid');
   const m=bundle.manifest;
-  if(!exact(m,['id','version','api','name','icon','color','description','content']) || !/^[a-z][a-z0-9_-]{0,62}$/.test(m.id) || !/^\d{1,5}\.\d{1,5}\.\d{1,5}$/.test(m.version) || m.api!==1 || !colors.includes(m.color))throw new Fault(400,'Manifest atau versi API tidak didukung');
+  if(!exact(m,['id','version','api','name','icon','color','description','content',...(bundle.format==='papbox.module/2'?['model','dependencies']:[])]) || !/^[a-z][a-z0-9_-]{0,62}$/.test(m.id) || !/^\d{1,5}\.\d{1,5}\.\d{1,5}$/.test(m.version) || m.api!==1 || !colors.includes(m.color))throw new Fault(400,'Manifest atau versi API tidak didukung');
   for(const [field,max] of [['name',80],['icon',4],['description',300],['content',8000]])if(typeof m[field]!=='string' || !m[field].trim() || m[field].length>max)throw new Fault(400,'Konten manifest tidak valid');
+  if(bundle.format==='papbox.module/2'){if(!versionPattern.test(m.version))throw new Fault(400,'Versi modul tidak valid');validateSchema(m.model);if(m.model.type!=='object' || !m.dependencies || Array.isArray(m.dependencies) || Object.keys(m.dependencies).length>20 || Object.entries(m.dependencies).some(([id,version])=>!identifier.test(id) || id===m.id || !versionPattern.test(version)))throw new Fault(400,'Model atau dependensi tidak valid');}
   if(!Object.hasOwn(trustedKeys,bundle.publisher))throw new Fault(403,'Penerbit belum dipercaya oleh operator');
   let key;try{key=createPublicKey(trustedKeys[bundle.publisher]);}catch{throw new Fault(403,'Kunci penerbit tidak valid');}
   if(key.asymmetricKeyType!=='ed25519')throw new Fault(403,'Penerbit harus memakai Ed25519');

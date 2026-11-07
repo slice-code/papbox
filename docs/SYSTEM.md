@@ -2,7 +2,7 @@
 
 Dokumen ini menjelaskan kontrak sistem yang sudah tersedia, cara operasi, dan
 batas versi awal. Jalankan setup PostgreSQL di [DATABASE.md](DATABASE.md) terlebih
-dahulu. Migrasi `003_identity_and_packages.sql` diperlukan setelah update kode:
+dahulu. Migrasi `005_mfa_approvals.sql` diperlukan setelah update kode:
 
 ```sh
 npm ci
@@ -10,13 +10,14 @@ npm run db:migrate
 npm start
 ```
 
+Lihat [MODULES.md](MODULES.md) untuk izin granular/peran khusus dan kontrak model, [OPERATIONS.md](OPERATIONS.md) untuk lifecycle tenant, MFA dan backup, serta [MCP.md](MCP.md) untuk adapter AI. Dokumen ini menjelaskan kontrak akun dan paket v1 yang tetap didukung.
+
 Tidak ada dependensi baru selain driver `pg` yang sebelumnya disetujui.
 
 ## Pengguna, peran, dan akun
 
 Administrator tenant membuka **Pengguna** untuk menambah pengguna, mengubah nama/
-email/peran, serta mengaktifkan atau menonaktifkan akun. Peran yang tersedia tetap
-`admin` dan `member`. Tidak ada penghapusan fisik pengguna agar referensi audit
+email/peran, serta mengaktifkan atau menonaktifkan akun. Peran bawaan adalah `admin` dan `member`; **Hak Akses** menyediakan peran khusus dengan izin per aksi dan cakupan data. Tidak ada penghapusan fisik pengguna agar referensi audit
 tetap utuh. Semua operasi dibatasi tenant dari sesi server.
 
 Administrator aktif terakhir tidak boleh dinonaktifkan atau dijadikan anggota.
@@ -116,7 +117,7 @@ Kontrak ini implementasi awal yang dibatasi; belum menjadi format paket kode
 JavaScript atau kebijakan marketplace umum. Paket mendefinisikan aplikasi teks
 read-only, tanpa skrip, HTML, SQL, dependensi, hook, akses jaringan, atau akses
 filesystem. Isi dirender sebagai text node. Tidak ada ekstraksi arsip atau eksekusi
-kode. Paket dapat muncul di launcher dan dibuka anggota tenant setelah diaktifkan.
+kode. Paket dapat muncul di launcher dan dibuka setelah aktif serta pengguna diberi izin `<id>.open`; anggota tidak memperoleh izin modul otomatis.
 
 Envelope JSON terdiri dari `format: "papbox.module/1"`, `publisher`, `manifest`,
 dan `signature`. Manifest memiliki tepat delapan field seperti
@@ -192,6 +193,4 @@ perubahan password, instalasi/update/rollback paket, rendering konten teks tanpa
 mengeksekusi HTML, dan layout ponsel. Pengujian browser tersebut dilakukan pada
 instance terisolasi, tidak mengubah akun pengguna development.
 
-Batas yang masih berlaku: belum ada email pemulihan otomatis, format paket kode
-executable/sandbox, sesi SSO/MFA, izin granular per modul bisnis, atau sertifikasi
-produksi. POS, Inventory, CRM dan Invoice belum menyediakan transaksi bisnis.
+Batas yang masih berlaku: eksekusi kode pihak ketiga/sandbox belum didukung, dan SSO ditunda. MFA, izin granular, MCP serta adapter email kini tersedia sesuai panduan terkait; email perlu konfigurasi OAuth dan belum memiliki durable outbox. Tidak ada klaim sertifikasi produksi. POS, Inventory, CRM dan Invoice belum menyediakan transaksi bisnis.

@@ -1,0 +1,20 @@
+{
+  "id": "tasks",
+  "version": "1.0.0",
+  "api": 1,
+  "name": "Tugas",
+  "icon": "T",
+  "color": "blue",
+  "description": "Contoh model deklaratif dengan pemilik dan izin per aksi.",
+  "content": "Kelola tugas sesuai hak akses Anda.",
+  "model": {
+    "type": "object",
+    "properties": {
+      "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+      "done": { "type": "boolean" }
+    },
+    "required": ["title", "done"],
+    "additionalProperties": false
+  },
+  "dependencies": {}
+}

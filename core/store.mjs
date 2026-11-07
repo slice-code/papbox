@@ -6,7 +6,7 @@ export class Store {
   transact(operation) {
     const run = this.queue.then(async () => {
       const state = await this.read();
-      const result = await operation(state);
+      const result = await operation(state,{});
       await mkdir(dirname(this.path), { recursive: true, mode: 0o700 });
       await writeFile(this.path + '.tmp', JSON.stringify(state, null, 2), { mode: 0o600 });
       await rename(this.path + '.tmp', this.path);

@@ -1,5 +1,6 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { Fault } from '../core/kernel.mjs';
+import {Mfa} from './mfa.mjs';
 import { passwordHash, text, verify } from './security.mjs';
 export const tenantPattern = /^(?!(?:constructor|prototype)$)[a-z][a-z0-9_-]{0,62}$/;
 export const digest = value => createHash('sha256').update(value).digest('hex');
@@ -17,22 +18,22 @@ export async function provisionTenant(store, input) {
   const user={id:randomUUID(),name:text(input.adminName),email,role:'admin',active:true,authVersion:1,hash:passwordHash(input.password)};
   return store.transact(state=>{
     if(Object.hasOwn(state.tenants,input.tenant)) throw new Fault(409,'Tenant sudah ada');
-    const tenant={users:[user],settings:{name,locale:'id-ID'},modules:{},menus:{},audit:[],sessions:{},passwordResets:{}};
+    const tenant={status:'active',roles:{},users:[user],settings:{name,locale:'id-ID'},modules:{},menus:{},audit:[],sessions:{},passwordResets:{}};
     audit(tenant,user.id,'tenant.created');state.tenants[input.tenant]=tenant;
     return {tenant:input.tenant,user:publicUser(user)};
   },input.tenant);
 }
 export class Identity {
-  constructor(store,{now=()=>Date.now()}={}){this.store=store;this.now=now;}
+  constructor(store,{now=()=>Date.now(),mfa=new Mfa()}={}){this.store=store;this.now=now;this.mfa=mfa;}
   async resolve(value){
     const parsed=parseToken(value);if(!parsed)return null;
     const state=await this.store.read(parsed.tenant),tenant=state.tenants[parsed.tenant];
     const session=tenant?.sessions?.[parsed.hash];
     const user=session && tenant.users.find(u=>u.id===session.user);
-    if(!user || user.active===false || session.expires<=this.now() || session.authVersion!==(user.authVersion || 1))return null;
+    if(!user || (tenant.status||'active')!=='active' || user.active===false || session.expires<=this.now() || session.authVersion!==(user.authVersion || 1))return null;
     return {tenant:parsed.tenant,user,session,hash:parsed.hash,state};
   }
-  async login(tenantId,email,password){
+  async login(tenantId,email,password,code){
     if(typeof tenantId!=='string' || !tenantPattern.test(tenantId))throw new Fault(400,'ID tenant tidak valid');
     // Verify and issue under the same tenant transaction as account changes.
     const token=randomBytes(32).toString('hex');
@@ -40,7 +41,8 @@ export class Identity {
       const tenant=state.tenants[tenantId];
       const user=tenant?.users.find(u=>u.email===String(email).toLowerCase());
       const valid=verify(password,user?.hash || '0'.repeat(32)+':'+ '0'.repeat(128));
-      if(!user || user.active===false || !valid)throw new Fault(401,'Email atau kata sandi salah');
+      if(!user || (tenant.status||'active')!=='active' || user.active===false || !valid)throw new Fault(401,'Email atau kata sandi salah');
+      if(!this.mfa.verify(user,tenantId,code))throw new Fault(401,'Email, kata sandi, atau kode MFA salah');
       tenant.sessions ||= {};
       for(const [hash,s] of Object.entries(tenant.sessions))if(s.expires<=this.now() || s.user===user.id && s.authVersion!==(user.authVersion||1))delete tenant.sessions[hash];
       const existing=Object.entries(tenant.sessions).filter(([,s])=>s.user===user.id).sort((a,b)=>a[1].expires-b[1].expires);
@@ -70,7 +72,7 @@ export class Identity {
 }
 export function revokeUser(tenant,user){
   user.authVersion=(user.authVersion||1)+1;
-  for(const property of ['sessions','passwordResets'])for(const [hash,item] of Object.entries(tenant[property]||{}))if(item.user===user.id)delete tenant[property][hash];
+  for(const property of ['sessions','passwordResets','approvals'])for(const [hash,item] of Object.entries(tenant[property]||{}))if(item.user===user.id || property==='approvals' && item.approver===user.id)delete tenant[property][hash];
 }
 export function issueReset(tenant,user,tenantId,now=Date.now()){
   for(const [hash,item] of Object.entries(tenant.passwordResets||{}))if(item.user===user.id || item.expires<=now)delete tenant.passwordResets[hash];

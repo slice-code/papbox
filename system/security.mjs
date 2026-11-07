@@ -1,6 +1,7 @@
 import { scryptSync, timingSafeEqual, randomBytes } from 'node:crypto';
+import { baselineRoles } from './access.mjs';
 import { Fault } from '../core/kernel.mjs';
-export const roles = { admin: ['launcher.read','apps.manage','menus.manage','users.manage','settings.manage'], member: ['launcher.read'] };
+export const roles=baselineRoles;
 export function text(value, max = 80) { if (typeof value !== 'string' || !value.trim() || value.trim().length > max) throw new Fault(400, 'Isian tidak valid'); return value.trim(); }
 export function passwordHash(password) { if (typeof password !== 'string' || password.length < 12 || password.length > 256) throw new Fault(400, 'Kata sandi harus 12–256 karakter'); const salt = randomBytes(16).toString('hex'); return salt + ':' + scryptSync(password, salt, 64).toString('hex'); }
 export function verify(password, hash) {

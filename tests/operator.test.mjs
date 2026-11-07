@@ -17,6 +17,11 @@ test('operator CLI provisions without overwriting, recovers credentials, and sig
  assert.equal((await identity.resolve(oldToken)).user.email,'admin@example.com');
  result=run('recover-account.mjs',['--tenant','operator','--email','admin@example.com'],'replacement test password\n');assert.equal(result.status,0,result.stderr);assert(!result.stdout.includes('replacement test password'));
  assert.equal(await identity.resolve(oldToken),null);await identity.login('operator','admin@example.com','replacement test password');
+ const sessionFile=dir+'/session';
+ result=run('session-create.mjs',['--tenant','operator','--email','admin@example.com','--out',sessionFile],'replacement test password\n');assert.equal(result.status,0,result.stderr);
+ const requests=[{jsonrpc:'2.0',id:1,method:'initialize',params:{protocolVersion:'2025-03-26'}},{jsonrpc:'2.0',id:2,method:'tools/list'}].map(JSON.stringify).join('\n')+'\n';
+ result=spawnSync(process.execPath,[new URL('../scripts/mcp.mjs',import.meta.url).pathname],{cwd:root,env:{...process.env,DATABASE_URL:'',PAPBOX_DATA:path,PAPBOX_MCP_SESSION_FILE:sessionFile},input:requests,encoding:'utf8'});
+ assert.equal(result.status,0,result.stderr);const responses=result.stdout.trim().split('\n').map(JSON.parse);assert.equal(responses[0].result.serverInfo.name,'papbox');assert(responses[1].result.tools.some(tool=>tool.name==='settings.list'));
  const {privateKey,publicKey}=generateKeyPairSync('ed25519');
  await writeFile(dir+'/private.pem',privateKey.export({format:'pem',type:'pkcs8'}),{mode:0o600});
  result=run('sign-package.mjs',['--manifest',new URL('../examples/notes.manifest.json',import.meta.url).pathname,'--key',dir+'/private.pem','--publisher','operator','--out',dir+'/bundle.json']);assert.equal(result.status,0,result.stderr);
