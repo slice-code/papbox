@@ -2,7 +2,13 @@
 
 **Plug and Play Box** — a lightweight, AI-native, modular SaaS application platform.
 
-> Status: architecture and design phase. No framework implementation yet.
+> Status: fondasi platform v0.1 dapat dijalankan. Modul bisnis masih tahap kontrak awal.
+
+## Mulai pengembangan
+
+Gunakan Node.js 24 (versi yang telah diuji), lalu jalankan `npm start`. Buka aplikasi pada port 3000 dan buat administrator pertama; tidak ada akun bawaan. Tidak perlu `npm install`. Jalankan `npm test` untuk pengujian dan `npm run check` untuk pemeriksaan sintaks.
+
+Launcher, autentikasi, pengelolaan katalog modul, menu, pengguna, pengaturan, dan fondasi PWA sudah tersedia. POS, Inventory, CRM, dan Invoice belum menyediakan transaksi bisnis. Lihat [panduan pengembangan](docs/DEVELOPMENT.md) untuk kontrak, konfigurasi, keamanan, dan batasan versi awal.
 
 ## Vision
 Build SaaS applications by installing modules into one simple, familiar app launcher. PAPbox favors ease of use over dense dashboards and keeps its kernel small.
