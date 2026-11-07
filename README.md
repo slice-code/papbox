@@ -61,6 +61,10 @@ The following uploaded visual references are the approved direction for the PAPb
 
 See [design specification](docs/DESIGN.md) for interaction and responsive requirements.
 
+
+## Progressive Web App (PWA)
+PAPbox is **PWA-first**: the same responsive launcher works in browsers and can be installed on supported mobile and desktop platforms. The native web runtime will provide a web app manifest, icons, installability metadata, a service worker, offline fallback, and safe asset update/versioning without mandatory external packages. Offline support for business modules is opt-in and must explicitly handle data synchronization and conflicts; PWA installation is not equivalent to a native Android APK. HTTPS is required in production (localhost excepted).
+
 ## Development rules
 See [AGENTS.md](AGENTS.md) before generating or modifying code.
 
