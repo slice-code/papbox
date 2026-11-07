@@ -48,6 +48,19 @@ See [UI/UX design specification](docs/DESIGN.md).
 6. Add optional MCP server and permission-aware module tool discovery.
 7. Benchmark memory, startup, throughput, and module activation.
 
+
+## Approved launcher mockups
+
+The following uploaded visual references are the approved direction for the PAPbox launcher. Keep the interface icon-first and uncluttered.
+
+### Mobile launcher
+![PAPbox mobile launcher](docs/PAPbox%20%E2%80%93%20Peluncur%20Aplikasi%20Pastel.png)
+
+### Desktop launcher
+![PAPbox desktop launcher](docs/Dasbor%20Launcher%20PAPbox%20Pastel.png)
+
+See [design specification](docs/DESIGN.md) for interaction and responsive requirements.
+
 ## Development rules
 See [AGENTS.md](AGENTS.md) before generating or modifying code.
 
