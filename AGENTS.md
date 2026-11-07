@@ -40,3 +40,10 @@ Read `docs/DESIGN.md` before changing the UI. Mobile and desktop launcher concep
 - Licensing and commercialization.
 
 Do not silently treat proposals as approved implementation decisions.
+
+## PWA-specific agent rules
+- Treat PWA support as a first-class requirement for the PAPbox web runtime, not a heavy kernel dependency.
+- Use browser-native Web App Manifest and Service Worker APIs; no third-party PWA package by default.
+- Cache public versioned assets conservatively. Do not cache authenticated requests, private tenant data, or secrets without an explicit reviewed design.
+- Implement predictable update handling and an offline fallback. Module-specific offline/sync behavior requires explicit opt-in and conflict resolution.
+- Test browser and installed standalone layouts on mobile and desktop; preserve the approved launcher UI.
