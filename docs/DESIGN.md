@@ -56,5 +56,12 @@ A module manifest declares app identity, display name, icon reference, routes, p
 - Hidden or unauthorized apps do not leak privileged routes or data.
 - No unapproved external UI dependencies.
 
-## Reference artifacts
-Two visual mockups were approved in the project conversation on 2026-11-07: mobile launcher and desktop launcher. This document captures their design intent. Reference image files should be added to `docs/design/` when available for upload.
+## Official approved visual references
+
+### Mobile launcher
+![Approved PAPbox mobile launcher](PAPbox%20%E2%80%93%20Peluncur%20Aplikasi%20Pastel.png)
+
+### Desktop launcher
+![Approved PAPbox desktop launcher](Dasbor%20Launcher%20PAPbox%20Pastel.png)
+
+These two images are the source of truth for the initial launcher visual direction. Changes to the core layout should be proposed for owner approval rather than silently replacing these references.
