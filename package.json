@@ -15,7 +15,8 @@
     "package:sign": "node scripts/sign-package.mjs",
     "tenant:operate": "node --env-file-if-exists=.env scripts/tenant-lifecycle.mjs",
     "session:create": "node --env-file-if-exists=.env scripts/session-create.mjs",
-    "mcp": "node --env-file-if-exists=.env scripts/mcp.mjs"
+    "mcp": "node --env-file-if-exists=.env scripts/mcp.mjs",
+    "mail:worker": "node --use-env-proxy --env-file-if-exists=.env scripts/mail-worker.mjs"
   },
   "dependencies": {
     "pg": "^8.23.1"

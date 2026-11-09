@@ -69,7 +69,7 @@ async function open(a){
   const menus=await service('menus.list');p.append(el('p',{class:'muted'},'Atur nama, urutan, dan visibilitas. Menyembunyikan menu tidak mengubah izin akses.'));
   for(const item of menus){const row=form([field('Nama','name','text',item.name),field('Urutan','order','number',String(item.order)),el('label',{},'Sembunyikan',el('input',{name:'hidden',type:'checkbox',checked:!!item.hidden}))],async data=>{await service('menus.save',{id:item.id,name:data.name,order:Number(data.order),hidden:data.hidden==='on'});message('Menu disimpan');});row.className='menu-row';if(!can('menus.update')){row.querySelectorAll('input,button').forEach(node=>node.disabled=true);}p.append(row);}
  }else if(a.id==='settings'){
-  const data=await service('settings.list');if(can('settings.update'))p.append(form([field('Nama ruang kerja','name','text',data.name)],async input=>{await service('settings.save',input);message('Pengaturan disimpan');}));else p.append(el('p',{},data.name));if(can('backups.export'))backupPanel(p);p.append(el('h2',{},'Aktivitas administrator'));
+  const data=await service('settings.list');if(can('settings.update'))p.append(form([field('Nama ruang kerja','name','text',data.name)],async input=>{await service('settings.save',input);message('Pengaturan disimpan');}));else p.append(el('p',{},data.name));if(can('backups.export'))backupPanel(p);if(can('mail.read'))await mailPanel(p);p.append(el('h2',{},'Aktivitas administrator'));
   for(const entry of data.audit)p.append(el('p',{class:'muted'},new Date(entry.at).toLocaleString('id-ID')+' · '+entry.action));
  }else{const app=await service('apps.open',{id:a.id});p.append(el('p',{},app.description || 'Modul fondasi.'),el('p',{class:'module-content'},app.content || 'Aplikasi terdaftar melalui registri modul. Fitur transaksi bisnis akan dibangun pada tahap berikutnya.'));if(app.model)await recordsPanel(p,app);}
 }
@@ -163,4 +163,9 @@ function backupPanel(p){
    const link=el('a',{href:url,download:filename});document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);message('Backup berhasil diunduh. Simpan di lokasi privat.');
   }finally{node.reset();}
  },'Unduh backup');p.append(node);
+}
+
+async function mailPanel(p){
+ const status=await service('mail.status');p.append(el('h2',{},'Pengiriman email'),el('p',{},status.emailEnabled?'Pemulihan email diaktifkan.':'Pemulihan email belum diaktifkan oleh operator.'),el('p',{class:'muted'},status.workerSeenAt?'Worker terakhir aktif: '+new Date(status.workerSeenAt).toLocaleString('id-ID')+(status.workerRecent?'':' · periksa worker jika ada antrean.'): 'Worker belum melaporkan aktivitas untuk tenant ini.'),el('p',{},Object.entries(status.counts).map(([state,count])=>state+': '+count).join(' · ')));
+ for(const job of status.jobs)p.append(el('div',{class:'row'},el('div',{},el('strong',{},job.status+' · '+job.attempts+' percobaan'),el('p',{class:'muted'},job.id),el('p',{},job.lastError||'Tidak ada error')),...(job.status==='dead'&&can('mail.manage')?[button('Coba ulang email',async()=>{if(!confirm('Jadwalkan ulang pengiriman ini jika token masih berlaku?'))return;await service('mail.retry',{id:job.id,approved:true});await open({id:'settings',name:'Pengaturan'});message('Pengiriman dijadwalkan ulang');})]:[])));
 }

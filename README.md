@@ -13,6 +13,7 @@ Launcher, autentikasi/MFA, izin per aksi dan data milik sendiri, peran khusus, s
 - [Kontrak modul dan hak akses](docs/MODULES.md)
 - [Operasi, MFA, backup/restore tenant](docs/OPERATIONS.md)
 - [Setup MCP](docs/MCP.md)
+- [Outbox dan worker email persisten](docs/MAIL-WORKER.md)
 - [Email Google Workspace dan persiapan SSO yang ditunda](docs/GOOGLE-WORKSPACE.md)
 - [Status implementasi dan batas yang masih berlaku](docs/STATUS.md)
 - [Panduan sistem utama](docs/SYSTEM.md) dan [pengembangan](docs/DEVELOPMENT.md)

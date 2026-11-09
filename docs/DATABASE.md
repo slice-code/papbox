@@ -73,6 +73,7 @@ File init harus dapat dibaca pengguna postgres di container (mode 0644).
 | `roles` | Peran tenant dan grant per aksi/scope |
 | `module_records` | Data model, pemilik, revisi; FK tenant/modul/pengguna dan RLS |
 | `approvals` | Permintaan mutasi AI, keputusan manusia, expiry dan single-use |
+| `mail_outbox` | Payload reset terenkripsi, lease, retry, expiry; RLS per tenant |
 | `schema_migrations` | Versi, checksum SHA-256, waktu penerapan |
 
 Tabel bisnis berikutnya memakai `tenant_id NOT NULL`, FK tenant, PK atau UNIQUE
@@ -177,4 +178,4 @@ hostname sesuai; jangan gunakan `rejectUnauthorized:false`. Tetapkan kebijakan
 backup/PITR, monitoring, rotasi kredensial, kapasitas pool, dan provisioning tenant
 sebelum deployment produksi. Compose ini ditujukan untuk pengembangan lokal.
 
-Backup per tenant, purge terkontrol, dan restore yang diuji ada di [OPERATIONS.md](OPERATIONS.md). Query model memakai pagination SQL dan filter owner; grant peran serta approval juga dilindungi RLS. Jangan mengubah migrasi 001–005 yang telah diterapkan; tambahkan migrasi berikutnya.
+Backup per tenant, purge terkontrol, dan restore yang diuji ada di [OPERATIONS.md](OPERATIONS.md). Query model memakai pagination SQL dan filter owner; grant peran serta approval juga dilindungi RLS. Jangan mengubah migrasi 001–006 yang telah diterapkan; tambahkan migrasi berikutnya.

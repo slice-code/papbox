@@ -18,6 +18,7 @@
 - Adapter MCP stdio, penemuan tool berdasarkan izin, resource kontrak, serta
   persetujuan manusia di UI sebelum mutasi dieksekusi sekali oleh pemohonnya.
 - Health/readiness probe dan log JSON tanpa payload credential.
+- Outbox email terenkripsi, worker terpisah, lease/retry/backoff, pembatalan token lama, serta status dan retry manual di Pengaturan.
 - PWA manifest, ikon, cache aset publik saja, fallback offline, serta alur worker
   update yang diperiksa dengan Chromium pada fixture terisolasi.
 
@@ -28,8 +29,7 @@ Uji browser memakai data uji sementara; installability dan pemasangan Chromium d
 
 - **Email Google Workspace:** adapter Gmail/OAuth dan alur reset diuji memakai
   provider tiruan. Pengiriman nyata belum diuji karena client ID/secret, refresh
-  token, sender, dan origin HTTPS publik belum dikonfigurasi. Delivery masih
-  best-effort tanpa outbox/retry persisten.
+  token, sender, dan origin HTTPS publik belum dikonfigurasi. Outbox dan retry persisten sudah tersedia; aktivasi Google serta uji pengiriman nyata masih menunggu konfigurasi operator.
 - **MFA produksi:** kunci enkripsi privat harus sama pada semua instance dan
   dibackup terpisah. Development memiliki key lokal; jangan menyalinnya ke Git.
 - **Deployment:** monitoring/alerting, backup cluster/PITR, TLS publik, secret

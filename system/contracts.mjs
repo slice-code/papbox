@@ -17,6 +17,8 @@ const specs={
  'users.reset':['users.reset',true,{id:string,approved:bool},['id','approved'],true],
  'account.change-password':['launcher.read',true,{currentPassword:{type:'string',maxLength:256},password:{type:'string',minLength:12,maxLength:256}},['currentPassword','password']],
  'account.revoke-sessions':['launcher.read',true,{}],
+ 'mail.status':['mail.read',false,{}],
+ 'mail.retry':['mail.manage',true,{id:string,approved:bool},['id','approved'],true],
  'backups.export':['backups.export',true,{currentPassword:{type:'string',minLength:12,maxLength:256},code:{type:'string',maxLength:32},approved:bool},['currentPassword','approved'],true],
  'settings.list':['settings.read',false,{}],
  'settings.save':['settings.update',true,{name:string},['name']],

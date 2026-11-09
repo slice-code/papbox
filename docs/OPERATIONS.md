@@ -1,7 +1,7 @@
 # Operasi core PAPbox
 
 Jalankan migrasi sebelum upgrade server. Versi saat ini memerlukan migrasi
-`005_mfa_approvals.sql`. Pastikan semua instance memakai kode, database, kunci MFA,
+`006_mail_outbox.sql`. Pastikan semua instance memakai kode, database, kunci MFA,
 dan registry penerbit yang konsisten. Tidak ada DDL otomatis saat startup.
 
 ## Kesehatan dan log
@@ -132,3 +132,7 @@ unset papbox_password
 
 Tindakan dicatat `operator.mfa-recovery`. Verifikasi identitas penerima melalui
 prosedur operator; CLI lokal bukan layanan pemulihan publik.
+
+## Worker email
+
+Antrean, penugasan tenant, retry dan batas delivery dijelaskan di [MAIL-WORKER.md](MAIL-WORKER.md). Pengaturan menyediakan status dan retry untuk pengguna berizin. Proses web dan worker harus dijalankan terpisah setelah restart; tidak ada pengiriman email otomatis dari worker jika credential belum dikonfigurasi.

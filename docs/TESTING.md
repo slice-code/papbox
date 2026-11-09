@@ -21,7 +21,7 @@ sementara tersebut. Tidak mengubah data aplikasi utama.
 Tes mencakup registrasi modul atomik, input schema, tenant/RLS, own/all, delegasi
 tanpa eskalasi, revision conflicts, dependensi/model update, token/sesi/recovery
 single-use, vektor RFC TOTP, persetujuan manusia MCP dan replay, backup/purge/
-restore lengkap, serta mail provider tiruan. Runtime tidak pernah mengirim email
+restore lengkap, serta mail provider tiruan dan kontrak outbox (crash, lease, retry, expiry, revocation dan replay hasil worker lama). Runtime tidak pernah mengirim email
 nyata saat tes default/integrasi.
 
 ## Browser opsional
@@ -39,7 +39,7 @@ PAPBOX_PLAYWRIGHT_MODULE=/tmp/papbox-browser/node_modules/playwright-core/index.
 Chromium harus sudah terpasang dari sumber resmi. Skrip memakai profile/data dan
 salinan aset sementara, bukan akun/data pengguna. Ia memeriksa peran khusus,
 form CRUD model, enrollment MFA dan recovery login, persetujuan MCP melalui UI,
-unduhan backup dari Pengaturan beserta isi lengkap dan header anti-cache,
+unduhan backup dari Pengaturan beserta isi lengkap dan header anti-cache, status/coba ulang email,
 layout ponsel, pergantian service worker tanpa cache privat, serta fallback offline.
 Screenshot fixture ada di `/tmp/papbox-core-mobile.png`.
 

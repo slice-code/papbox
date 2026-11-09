@@ -3,7 +3,8 @@ import {generateKeyPairSync,sign} from 'node:crypto';
 import {once} from 'node:events';
 import {Kernel} from '../../core/kernel.mjs';
 import {registerSystem,roles} from '../../system/services.mjs';
-import {Identity,provisionTenant} from '../../system/identity.mjs';
+import {MailOutbox} from '../../system/mail-outbox.mjs';
+import {Identity,provisionTenant,issueReset} from '../../system/identity.mjs';
 import {Mfa,totp} from '../../system/mfa.mjs';
 import {canonical} from '../../system/packages.mjs';
 import {tenantStatus,exportTenant,restoreTenant,purgeTenant,verifyBackup} from '../../system/tenants.mjs';
@@ -59,6 +60,7 @@ export async function operationsContract(store,{operatorStore=store}={}){
   assert.equal(downloaded.data.users[0].security.mfa.recoveryHashes.length,8);assert.equal((await store.read('lifecycle')).tenants.lifecycle.users[0].security.mfa.recoveryHashes.length,8);
   const forbidden=await fetch(endpoint,{method:'POST',headers,body:JSON.stringify({currentPassword:'operations password 123',approved:true,tenant:'other'})});assert.equal(forbidden.status,400);
  }finally{backupApp.server.closeAllConnections();await new Promise(r=>backupApp.server.close(r));}
+ const pendingMail=await store.transact(state=>{const tenant=state.tenants.lifecycle,user=tenant.users[0],reset=issueReset(tenant,user,'lifecycle',now);return new MailOutbox({store,cipher:mfa,now:()=>now}).enqueue(tenant,'lifecycle',user,reset.token);},'lifecycle');
  await tenantStatus(store,'lifecycle','suspended','lifecycle');assert.equal(await identity.resolve(mfaSession),null);
  await assert.rejects(identity.login('lifecycle','admin@example.com','operations password 123',recovery.recoveryCodes[1]),{status:401});
  await tenantStatus(store,'lifecycle','archived','lifecycle');const backup=await exportTenant(store,'lifecycle');
@@ -67,7 +69,7 @@ export async function operationsContract(store,{operatorStore=store}={}){
  const corrupt=structuredClone(backup);corrupt.data.settings.name='Tampered';await assert.rejects(restoreTenant(store,corrupt),{status:400});
  if(operatorStore!==store){await assert.rejects(purgeTenant(store,backup,'lifecycle'),e=>e.code==='42501');assert((await store.read('lifecycle')).tenants.lifecycle);}
  await purgeTenant(operatorStore,backup,'lifecycle');assert(!(await store.read('lifecycle')).tenants.lifecycle);
- await restoreTenant(store,backup);assert.equal((await store.read('lifecycle')).tenants.lifecycle.status,'archived');
+ await restoreTenant(store,backup);const restoredTenant=(await store.read('lifecycle')).tenants.lifecycle;assert.equal(restoredTenant.status,'archived');assert.equal(restoredTenant.mailOutbox[pendingMail].status,'cancelled');assert.equal(restoredTenant.mailOutbox[pendingMail].payload,null);
  await tenantStatus(store,'lifecycle','active','lifecycle');assert.equal((await call('records.list',{module:'journal'})).items[0].data.note,'Approved by human');
  const restored=await identity.login('lifecycle','admin@example.com','operations password 123',recovery.recoveryCodes[1]);assert(await identity.resolve(restored));
  await call('account.mfa-disable',{currentPassword:'operations password 123',code:recovery.recoveryCodes[2]});assert.equal(await identity.resolve(restored),null);

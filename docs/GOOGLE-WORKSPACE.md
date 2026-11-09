@@ -42,13 +42,14 @@ sekali pakai berlaku 15 menit. Tautan memakai fragment `/#reset=...` agar token
 tidak masuk request URL server; frontend menghapus fragment setelah membacanya.
 MFA yang sudah aktif tetap diperlukan saat login setelah reset.
 
-Pengiriman bersifat **best-effort di proses web**, tanpa durable outbox/retry
-worker. Respons menyatakan permintaan diproses, bukan menjamin pesan terkirim.
-Kegagalan dicatat sebagai event tanpa alamat, token, atau isi email. Jika proses
-mati atau Google menolak pesan, pengguna perlu meminta ulang. Logikanya diuji
-menggunakan provider tiruan; pengiriman nyata memerlukan kredensial dan uji
-operator pada akun yang diotorisasi. Jangan menandai email produksi siap sebelum
-uji tersebut dan monitoring/retry operasional ditetapkan.
+Pengiriman memakai outbox persisten terenkripsi dan proses worker terpisah,
+dengan retry serta status di Pengaturan. Jalankan worker sesuai
+[MAIL-WORKER.md](MAIL-WORKER.md). Respons web menyatakan permintaan diterima,
+bukan menjamin pesan sudah masuk inbox. Semantik at-least-once memungkinkan
+pesan duplikat pada kegagalan ambigu; token tetap sekali pakai.
+
+Adapter dan antrean diuji menggunakan provider tiruan. Pengiriman nyata tetap
+memerlukan kredensial dan uji operator pada akun/penerima yang diotorisasi.
 
 Jika email tidak diaktifkan, tombolnya tidak ditampilkan dan endpoint menolak
 permintaan secara eksplisit. Alur token admin dan recovery operator tetap tersedia.

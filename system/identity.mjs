@@ -4,7 +4,7 @@ import {Mfa} from './mfa.mjs';
 import { passwordHash, text, verify } from './security.mjs';
 export const tenantPattern = /^(?!(?:constructor|prototype)$)[a-z][a-z0-9_-]{0,62}$/;
 export const digest = value => createHash('sha256').update(value).digest('hex');
-export const audit = (tenant, user, action) => tenant.audit.push({ at:new Date().toISOString(),user,action });
+export const audit = (tenant, user, action, details={}) => tenant.audit.push({ at:new Date().toISOString(),user,action,details });
 export const publicUser = ({id,name,email,role,active=true}) => ({id,name,email,role,active});
 export function parseToken(value) {
   if(typeof value!=='string') return null;
@@ -71,12 +71,18 @@ export class Identity {
   }
 }
 export function revokeUser(tenant,user){
+  cancelMail(tenant,user.id);
   user.authVersion=(user.authVersion||1)+1;
   for(const property of ['sessions','passwordResets','approvals'])for(const [hash,item] of Object.entries(tenant[property]||{}))if(item.user===user.id || property==='approvals' && item.approver===user.id)delete tenant[property][hash];
 }
 export function issueReset(tenant,user,tenantId,now=Date.now()){
+  cancelMail(tenant,user.id);
   for(const [hash,item] of Object.entries(tenant.passwordResets||{}))if(item.user===user.id || item.expires<=now)delete tenant.passwordResets[hash];
   const token=randomBytes(32).toString('hex');tenant.passwordResets ||= {};
   tenant.passwordResets[digest(token)]={user:user.id,authVersion:user.authVersion||1,expires:now+15*60*1000};
   return {token:tenantId+'.'+token,expires:new Date(now+15*60*1000).toISOString()};
+}
+
+function cancelMail(tenant,user){
+ for(const job of Object.values(tenant.mailOutbox||{}))if(job.user===user&&!['sent','cancelled'].includes(job.status)){job.status='cancelled';job.payload=null;job.lease=null;job.leaseUntil=null;job.lastError='RESET_REVOKED';}
 }

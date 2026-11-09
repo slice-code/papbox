@@ -1,3 +1,4 @@
+import {MailOutbox} from './mail-outbox.mjs';
 import {makeBackup} from './tenants.mjs';
 import { randomUUID } from 'node:crypto';
 import { Fault } from '../core/kernel.mjs';
@@ -14,7 +15,7 @@ import {Mfa} from './mfa.mjs';
 import {validateInput} from '../core/contracts.mjs';
 import {identifier} from '../core/contracts.mjs';
 import {publicUser,revokeUser,issueReset} from './identity.mjs';
-export function registerSystem(kernel, store, {trustedKeys={},mfa=new Mfa()}={}) {
+export function registerSystem(kernel, store, {trustedKeys={},mfa=new Mfa(),outbox=new MailOutbox({store,cipher:mfa}),emailEnabled=false}={}) {
   const available=t=>[...catalog,...Object.values(t.modules).filter(item=>item.package).flatMap(item=>{try{return [inspectPackage(item.package,trustedKeys).manifest];}catch{return [];}})];
   const reserved=new Set([...catalog,...systemApps].map(app=>app.id).concat(['constructor','prototype']));
   const handlers={},operations={};
@@ -119,6 +120,8 @@ export function registerSystem(kernel, store, {trustedKeys={},mfa=new Mfa()}={})
     snapshot.users=structuredClone(t.users);
     return makeBackup(ctx.tenant,snapshot);
   });
+  register('mail.status',t=>({...outbox.status(t),emailEnabled}));
+  register('mail.retry',(t,i)=>outbox.retry(t,i.id));
   register('settings.list', t => ({ ...t.settings, audit:t.audit.slice(-20).reverse() }));
   register('settings.save', (t,i) => { t.settings = { name:text(i.name), locale:'id-ID' }; return t.settings; });
 

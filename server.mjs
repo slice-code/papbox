@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { Kernel, Fault } from './core/kernel.mjs';
 import { Store } from './core/store.mjs';
 import { registerSystem, roles } from './system/services.mjs';
+import {MailOutbox} from './system/mail-outbox.mjs';
 import {configuredMail} from './adapters/google/mail.mjs';
 import {audit,issueReset} from './system/identity.mjs';
 import {Mfa} from './system/mfa.mjs';
@@ -15,7 +16,9 @@ import {effectivePermissions} from './system/access.mjs';
 import { Identity, provisionTenant, tenantPattern, digest } from './system/identity.mjs';
 export function createApp({ assetRoot=new URL('./public/',import.meta.url), mailer=null, mfa=new Mfa(), logger=()=>{}, authLimit=10, trustedKeys={}, store: providedStore, path = process.env.PAPBOX_DATA || fileURLToPath(new URL('./storage/data.json', import.meta.url)), secure = process.env.NODE_ENV === 'production' } = {}) {
   const store = providedStore || new Store(path), kernel = new Kernel(), identity = new Identity(store,{mfa}), attempts = new Map();
-  registerSystem(kernel, store, {trustedKeys,mfa});
+  if(mailer&&!mfa.key)throw Error('Email outbox requires PAPBOX_ENCRYPTION_KEY');
+  const outbox=new MailOutbox({store,cipher:mfa,logger});
+  registerSystem(kernel, store, {trustedKeys,mfa,outbox,emailEnabled:Boolean(mailer)});
   const assets = { '/':'index.html','/app.js':'app.js','/style.css':'style.css','/manifest.webmanifest':'manifest.webmanifest','/sw.js':'sw.js','/offline.html':'offline.html','/icon.svg':'icon.svg','/icon-192.png':'icon-192.png','/icon-512.png':'icon-512.png' };
   const server = createServer(async (req,res) => {
     const requestId=randomUUID(),started=performance.now();
@@ -66,13 +69,11 @@ export function createApp({ assetRoot=new URL('./public/',import.meta.url), mail
           const recoveryTenant=typeof input.tenant==='string'?input.tenant:'default';
           if(!tenantPattern.test(recoveryTenant))throw new Fault(400,'ID tenant tidak valid');
           const existing=(await store.read(recoveryTenant)).tenants[recoveryTenant];
-          const pending=existing?await store.transact(s=>{
+          if(existing)await store.transact(s=>{
             const tenant=s.tenants[recoveryTenant],user=tenant.users.find(user=>user.active!==false&&user.email===String(input.email).trim().toLowerCase());
             if(!user||(tenant.status||'active')!=='active')return null;
-            const reset=issueReset(tenant,user,recoveryTenant);audit(tenant,user.id,'auth.email-reset-requested');return {to:user.email,token:reset.token};
-          },recoveryTenant):null;
-          // Delivery is best-effort and detached to keep account existence out of response timing.
-          if(pending)void Promise.resolve().then(()=>mailer.sendReset(pending)).then(()=>logger({event:'mail.reset-delivered'}),()=>logger({event:'mail.reset-failed'}));
+            const reset=issueReset(tenant,user,recoveryTenant);const jobId=outbox.enqueue(tenant,recoveryTenant,user,reset.token);audit(tenant,user.id,'auth.email-reset-requested',{jobId});return null;
+          },recoveryTenant);
           return send(200,{ok:true,message:'Jika akun aktif, permintaan pemulihan diproses.'});
         }
         if(url.pathname==='/api/reset')return send(200,await identity.reset(input.token,input.password));
@@ -115,7 +116,7 @@ export function createApp({ assetRoot=new URL('./public/',import.meta.url), mail
     } catch (error) { if(!error.status)logger({event:'http.error',requestId,code:typeof error.code==='string'?error.code:'INTERNAL'}); send(error.status || 500,{error:error.status ? error.message : 'Kesalahan server'}); }
   });
   server.requestTimeout=15000; server.headersTimeout=10000;
-  return {server,store,kernel};
+  return {server,store,kernel,outbox};
 }
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   let store;
@@ -125,7 +126,8 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     try { await store.initialize(); } catch (error) { await store.close(); throw error; }
   }
   const trustedKeys=process.env.PAPBOX_TRUSTED_KEYS ? JSON.parse(await readFile(process.env.PAPBOX_TRUSTED_KEYS,'utf8')) : {};
-  const {server}=createApp({store,trustedKeys,mailer:configuredMail(),mfa:new Mfa(process.env.PAPBOX_ENCRYPTION_KEY),logger:entry=>console.log(JSON.stringify(entry))});
+  const mailer=configuredMail();if(mailer&&!store)throw Error('Email outbox requires PostgreSQL in application runtime');
+  const {server}=createApp({store,trustedKeys,mailer,mfa:new Mfa(process.env.PAPBOX_ENCRYPTION_KEY),logger:entry=>console.log(JSON.stringify(entry))});
   server.listen(Number(process.env.PORT || 3000),process.env.HOST || '127.0.0.1',()=>console.log('PAPbox berjalan pada port '+server.address().port+' · '+(store ? 'PostgreSQL' : 'JSON development store')));
   for (const signal of ['SIGTERM','SIGINT']) process.once(signal,()=>server.close(async()=>{await store?.close();}));
 }

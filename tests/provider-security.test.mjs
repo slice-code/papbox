@@ -14,18 +14,18 @@ test('TOTP RFC vector and authenticated encryption bind secrets to the account',
 test('Google mail refreshes OAuth credentials and sends reset links without header injection',async()=>{
  const calls=[];
  const mail=new GoogleMail({clientId:'test-client',clientSecret:'test-secret',refreshToken:'test-refresh',from:'sender@example.com',publicUrl:'https://app.example.com',fetch:async(url,options)=>{calls.push({url,options});return {ok:true,json:async()=>({access_token:'test-access',expires_in:3600})};}});
- await mail.sendReset({to:'user@example.com',token:'tenant.'+'a'.repeat(64)});await mail.sendReset({to:'other@example.com',token:'tenant.'+'b'.repeat(64)});
+ await mail.sendReset({to:'user@example.com',token:'tenant.'+'a'.repeat(64),jobId:'12345678-1234-1234-1234-123456789abc'});await mail.sendReset({to:'other@example.com',token:'tenant.'+'b'.repeat(64)});
  assert.equal(calls.filter(call=>call.url.includes('oauth2')).length,1);
- const raw=JSON.parse(calls[1].options.body).raw;const message=Buffer.from(raw,'base64url').toString('utf8');assert(message.includes('https://app.example.com/#reset='));assert(!message.includes('test-secret'));assert.equal(calls[1].options.headers.Authorization,'Bearer test-access');
+ const raw=JSON.parse(calls[1].options.body).raw;const message=Buffer.from(raw,'base64url').toString('utf8');assert(message.includes('https://app.example.com/#reset='));assert(message.includes('Message-ID: <papbox-reset-12345678-1234-1234-1234-123456789abc@example.com>'));assert(!message.includes('test-secret'));assert.equal(calls[1].options.headers.Authorization,'Bearer test-access');
  await assert.rejects(mail.sendReset({to:'x@example.com\r\nBcc: attacker@example.com',token:'x'}),{status:400});assert.equal(configuredMail({PAPBOX_EMAIL_ENABLED:'false'}),null);assert.throws(()=>configuredMail({PAPBOX_EMAIL_ENABLED:'true'}));
 });
 test('email recovery hides account existence, changes credentials with a one-use token, and logs no secrets',async t=>{
  const dir=await mkdtemp('/tmp/papbox-email-');t.after(()=>rm(dir,{recursive:true,force:true}));const store=new Store(dir+'/data.json');await provisionTenant(store,{tenant:'email',name:'Email',adminName:'Admin',email:'admin@example.com',password:'original password 123'});
- const delivered=[],logs=[],app=createApp({store,mailer:{sendReset:async message=>delivered.push(message)},logger:entry=>logs.push(entry)});app.server.listen(0,'127.0.0.1');await once(app.server,'listening');t.after(async()=>{app.server.closeAllConnections();await new Promise(r=>app.server.close(r));});
+ const delivered=[],logs=[],app=createApp({store,mfa:new Mfa('cd'.repeat(32)),mailer:{sendReset:async message=>delivered.push(message)},logger:entry=>logs.push(entry)});app.server.listen(0,'127.0.0.1');await once(app.server,'listening');t.after(async()=>{app.server.closeAllConnections();await new Promise(r=>app.server.close(r));});
  const base='http://127.0.0.1:'+app.server.address().port;
  const request=async input=>{const response=await fetch(base+'/api/forgot',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(input)});assert.equal(response.status,200);return response.json();};
  const exists=await request({tenant:'email',email:'admin@example.com'}),missing=await request({tenant:'email',email:'unknown@example.com'});assert.deepEqual(exists,missing);
- await new Promise(r=>setImmediate(r));assert.equal(delivered.length,1);const token=delivered[0].token;
+ assert.equal(delivered.length,0);const queued=(await store.read()).tenants.email.mailOutbox;assert.equal(Object.keys(queued).length,1);assert.equal(Object.values(queued)[0].status,'pending');await app.outbox.processNext('email',{sendReset:async message=>delivered.push(message)});assert.equal(delivered.length,1);const token=delivered[0].token;
  assert(!JSON.stringify(await store.read()).includes(token));assert(!JSON.stringify(logs).includes(token));
  const identity=new Identity(store);await identity.reset(token,'replacement password 123');await assert.rejects(identity.reset(token,'third password 123'),{status:400});await identity.login('email','admin@example.com','replacement password 123');
 });

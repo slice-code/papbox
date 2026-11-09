@@ -30,7 +30,7 @@ export async function restoreTenant(store,backup){
   const data=structuredClone(backup.data);
   // A restored tenant never revives old sessions or outstanding recovery tokens.
   for(const user of data.users)revokeUser(data,user);
-  data.status='archived';audit(data,data.users[0].id,'operator.tenant-restored');
+  data.mailWorkerSeenAt=null;data.status='archived';audit(data,data.users[0].id,'operator.tenant-restored');
   state.tenants[backup.tenant]=data;return {ok:true,tenant:backup.tenant,status:'archived'};
  },backup.tenant);
 }

@@ -11,7 +11,7 @@ export class PostgresStore {
   async initialize() {
     const {rows:[role]} = await this.pool.query('SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname=current_user');
     if (role.rolsuper || role.rolbypassrls) throw Error('PAPbox requires a non-superuser role without BYPASSRLS');
-    const result = await this.pool.query("SELECT version FROM schema_migrations WHERE version='005_mfa_approvals.sql'");
+    const result = await this.pool.query("SELECT version FROM schema_migrations WHERE version='006_mail_outbox.sql'");
     if (!result.rowCount) throw Error('Run npm run db:migrate before starting PAPbox');
   }
   async scoped(tenant, write, operation) {
@@ -29,7 +29,7 @@ export class PostgresStore {
   }
   async load(client, tenant) {
     const state = { tenants: {} };
-    const tenantRow=(await client.query('SELECT id,status FROM tenants WHERE id=$1',[tenant])).rows[0];
+    const tenantRow=(await client.query('SELECT id,status,mail_worker_seen_at FROM tenants WHERE id=$1',[tenant])).rows[0];
     if(!tenantRow)return state;
     const settings = (await client.query('SELECT name,locale FROM tenant_settings WHERE tenant_id=$1', [tenant])).rows[0];
     const users = (await client.query('SELECT id,name,email,role,active,security,auth_version AS "authVersion",password_hash AS hash FROM users WHERE tenant_id=$1 ORDER BY created_at,id', [tenant])).rows;
@@ -42,7 +42,8 @@ export class PostgresStore {
     }
     const roles=Object.fromEntries((await client.query('SELECT id,name,permissions FROM roles WHERE tenant_id=$1',[tenant])).rows.map(({id,...role})=>[id,role]));
     const approvals=Object.fromEntries((await client.query('SELECT id,requester_id AS "user",auth_version AS "authVersion",service,input,status,expires_at,approver_id AS approver FROM approvals WHERE tenant_id=$1',[tenant])).rows.map(({id,expires_at,...item})=>[id,{...item,expires:new Date(expires_at).getTime()}]));
-    state.tenants[tenant] = { approvals,status:tenantRow.status,roles, settings, users, modules, menus, audit, ...security };
+    const mailOutbox=Object.fromEntries((await client.query('SELECT id,user_id AS "user",auth_version AS "authVersion",reset_hash AS "resetHash",payload,status,attempts,created_at,next_attempt_at,expires_at,lease,lease_until,last_error AS "lastError" FROM mail_outbox WHERE tenant_id=$1',[tenant])).rows.map(({id,created_at,next_attempt_at,expires_at,lease_until,...job})=>[id,{...job,createdAt:new Date(created_at).getTime(),nextAttempt:new Date(next_attempt_at).getTime(),expires:new Date(expires_at).getTime(),leaseUntil:lease_until?new Date(lease_until).getTime():null}]));
+    state.tenants[tenant] = { mailOutbox,mailWorkerSeenAt:tenantRow.mail_worker_seen_at?new Date(tenantRow.mail_worker_seen_at).getTime():null,approvals,status:tenantRow.status,roles, settings, users, modules, menus, audit, ...security };
     return state;
   }
   read(tenant = 'default') { return this.scoped(tenant,false,client=>this.load(client,tenant)); }
@@ -54,6 +55,7 @@ export class PostgresStore {
       const next = state.tenants[tenant];
       if (!before) await client.query('INSERT INTO tenants(id,status) VALUES ($1,$2)',[tenant,next.status||'active']);
       else if((next.status||'active')!==before.status)await client.query('UPDATE tenants SET status=$2 WHERE id=$1',[tenant,next.status||'active']);
+      if((next.mailWorkerSeenAt||null)!==(before?.mailWorkerSeenAt||null))await client.query('UPDATE tenants SET mail_worker_seen_at=$2 WHERE id=$1',[tenant,next.mailWorkerSeenAt?new Date(next.mailWorkerSeenAt):null]);
       for(const id of Object.keys(before?.roles||{}))if(!Object.hasOwn(next.roles||{},id))await client.query('DELETE FROM roles WHERE tenant_id=$1 AND id=$2',[tenant,id]);
       for(const [id,role] of Object.entries(next.roles||{}))if(JSON.stringify(role)!==JSON.stringify(before?.roles?.[id]))await client.query('INSERT INTO roles(tenant_id,id,name,permissions) VALUES($1,$2,$3,$4) ON CONFLICT(tenant_id,id) DO UPDATE SET name=excluded.name,permissions=excluded.permissions',[tenant,id,role.name,role.permissions]);
       if (JSON.stringify(next.settings)!==JSON.stringify(before?.settings)) await client.query('INSERT INTO tenant_settings(tenant_id,name,locale) VALUES ($1,$2,$3) ON CONFLICT(tenant_id) DO UPDATE SET name=excluded.name,locale=excluded.locale',[tenant,next.settings.name,next.settings.locale]);
@@ -73,6 +75,8 @@ export class PostgresStore {
       }
       for(const id of Object.keys(before?.approvals||{}))if(!Object.hasOwn(next.approvals||{},id))await client.query('DELETE FROM approvals WHERE tenant_id=$1 AND id=$2',[tenant,id]);
       for(const [id,item] of Object.entries(next.approvals||{}))if(JSON.stringify(item)!==JSON.stringify(before?.approvals?.[id]))await client.query('INSERT INTO approvals(tenant_id,id,requester_id,auth_version,service,input,status,expires_at,approver_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT(tenant_id,id) DO UPDATE SET status=excluded.status,approver_id=excluded.approver_id',[tenant,id,item.user,item.authVersion,item.service,item.input,item.status,new Date(item.expires),item.approver||null]);
+      for(const id of Object.keys(before?.mailOutbox||{}))if(!Object.hasOwn(next.mailOutbox||{},id))await client.query('DELETE FROM mail_outbox WHERE tenant_id=$1 AND id=$2',[tenant,id]);
+      for(const [id,job] of Object.entries(next.mailOutbox||{}))if(JSON.stringify(job)!==JSON.stringify(before?.mailOutbox?.[id]))await client.query('INSERT INTO mail_outbox(tenant_id,id,user_id,auth_version,reset_hash,payload,status,attempts,created_at,next_attempt_at,expires_at,lease,lease_until,last_error) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) ON CONFLICT(tenant_id,id) DO UPDATE SET payload=excluded.payload,status=excluded.status,attempts=excluded.attempts,next_attempt_at=excluded.next_attempt_at,lease=excluded.lease,lease_until=excluded.lease_until,last_error=excluded.last_error',[tenant,id,job.user,job.authVersion,job.resetHash,job.payload,job.status,job.attempts,new Date(job.createdAt),new Date(job.nextAttempt),new Date(job.expires),job.lease,job.leaseUntil?new Date(job.leaseUntil):null,job.lastError]);
       if(!before)for(const [module,records] of Object.entries(next.records||{}))for(const row of Object.values(records))await client.query('INSERT INTO module_records(tenant_id,module_id,id,owner_id,data,revision,created_at,updated_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8)',[tenant,module,row.id,row.owner,row.data,row.revision,row.createdAt,row.updatedAt]);
       const previousAudit = before?.audit || [];
       if (JSON.stringify(next.audit.slice(0,previousAudit.length))!==JSON.stringify(previousAudit)) throw Error('Audit history is append-only');
@@ -80,7 +84,7 @@ export class PostgresStore {
       return result;
     });
   }
-  async health(){const result=await this.pool.query("SELECT count(*)::integer AS version FROM schema_migrations WHERE version='005_mfa_approvals.sql'");if(result.rows[0].version!==1)throw Error('Schema not ready');for(const table of ['roles','module_records','approvals','sessions','users'])await this.pool.query(`SELECT 1 FROM ${table} LIMIT 0`);}
+  async health(){const result=await this.pool.query("SELECT count(*)::integer AS version FROM schema_migrations WHERE version='006_mail_outbox.sql'");if(result.rows[0].version!==1)throw Error('Schema not ready');for(const table of ['mail_outbox','roles','module_records','approvals','sessions','users'])await this.pool.query(`SELECT 1 FROM ${table} LIMIT 0`);}
   async exportSnapshot(client,tenant){
     const data=(await this.load(client,tenant)).tenants[tenant];if(!data)return null;
     data.audit=(await client.query('SELECT actor_id AS "user",action,occurred_at,details FROM audit_events WHERE tenant_id=$1 ORDER BY occurred_at,id',[tenant])).rows.map(({occurred_at,...entry})=>({...entry,at:occurred_at.toISOString()}));
@@ -92,7 +96,7 @@ export class PostgresStore {
   purgeTenant(tenant,validate){return this.scoped(tenant,true,async client=>{
     validate(await this.exportSnapshot(client,tenant));
     // Operator-only: runtime role deliberately cannot delete audit history.
-    for(const table of ['approvals','sessions','password_resets','module_records','menu_overrides','installed_modules','roles','tenant_settings','audit_events','users'])await client.query(`DELETE FROM ${table} WHERE tenant_id=$1`,[tenant]);
+    for(const table of ['mail_outbox','approvals','sessions','password_resets','module_records','menu_overrides','installed_modules','roles','tenant_settings','audit_events','users'])await client.query(`DELETE FROM ${table} WHERE tenant_id=$1`,[tenant]);
     await client.query('DELETE FROM tenants WHERE id=$1',[tenant]);return {ok:true};
   });}
   async allowAuth(key,limit=10) {
