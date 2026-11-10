@@ -1,4 +1,4 @@
-# Aplikasi POS 1.0
+# Aplikasi POS 1.1
 
 POS adalah aplikasi native bawaan di `modules/pos/`, terpisah dari kernel dan
 aplikasi sistem. Rilis awal menyediakan katalog produk, kasir tunai IDR, struk,
@@ -18,9 +18,9 @@ Tidak ada akun, harga atau transaksi contoh yang disisipkan ke data pengguna.
 
 1. Login sebagai admin, buka **Aplikasi**, lalu **Pasang** pada POS.
 2. Kembali ke launcher dan buka **POS**.
-3. Buka tab **Produk → Tambah produk**, masukkan SKU, nama dan harga rupiah utuh.
+3. Buka tab **Produk → Tambah produk**, masukkan SKU, nama, kategori dan harga rupiah utuh. Pilih ilustrasi bawaan atau unggah foto produk.
 4. Pada tab **Kasir**, cari/pilih produk. Klik produk untuk menambah ke keranjang,
-   gunakan tombol jumlah/hapus, lalu masukkan uang tunai yang diterima.
+   pilih baris pesanan lalu gunakan keypad **Jumlah**, **Harga**, atau **Diskon %**. Harga dan diskon hanya aktif dengan izin khusus. Pilih **Pembayaran** lalu masukkan uang tunai yang diterima.
 5. Pilih **Bayar & simpan** dan konfirmasikan total. Server menyimpan transaksi
    serta audit, kemudian menampilkan struk dengan total, tunai dan kembalian.
 6. **Cetak struk** memakai dialog cetak browser. Riwayat dapat dibuka kembali
@@ -44,6 +44,8 @@ buat peran pada **Hak Akses** dan berikan:
 | `pos.sales.create` | own |
 | `pos.sales.read` | own untuk struk sendiri; all bagi pengelola |
 | `pos.products.manage` | all, hanya pengelola katalog |
+| `pos.sales.override-price` | all, hanya kasir yang boleh mengganti harga per transaksi |
+| `pos.sales.discount` | all, hanya kasir yang boleh memberi diskon |
 | `pos.sales.void` | own atau all sesuai kebijakan pembatalan |
 
 Tetapkan peran kepada pengguna melalui **Pengguna**. Kasir tanpa izin pengelolaan
@@ -56,7 +58,9 @@ kontrol UI bukan pengganti otorisasi.
 Manifest `modules/pos/manifest.mjs` mendeklarasikan input tertutup, izin, mutasi,
 konfirmasi serta rute POST `/api/services/<nama>`:
 
-- `pos.products.list/get/create/update`: katalog, pagination, revisi, dan aktivasi.
+- `pos.products.list/get/create/update`: katalog, pagination, revisi, kategori, pilihan ilustrasi, foto dan aktivasi. Filter kategori dilakukan di server sebelum pagination.
+- `pos.products.categories`: kategori produk aktif (maksimal 1000 kategori).
+- `pos.products.photo`: foto privat berdasarkan ID produk; memerlukan izin baca katalog. Daftar produk hanya memuat `hasPhoto`, tanpa isi foto.
 - `pos.quote`: harga terbaru dan total untuk item/quantity tanpa menyimpan penjualan.
 - `pos.checkout`: transaksi tunai dari daftar productId, quantity, revision,
   tendered dan requestId UUID; memerlukan approved:true.
@@ -76,7 +80,11 @@ terpisah sebelum diaktifkan.
 - Mata uang IDR, harga berupa integer rupiah, quantity berupa integer 1–1000.
   Maksimal 100 baris, harga satuan Rp1 miliar, total/tunai maksimal Rp1 triliun.
   Perhitungan server memeriksa batas integer aman; klien tidak dapat mengirim
-  harga, total atau kembalian sendiri.
+  total atau kembalian sendiri. `unitPrice` opsional memerlukan izin override;
+  `discountBps` integer 0–10000 mewakili 0–100%. Diskon dibulatkan half-up
+  pada subtotal setiap baris memakai BigInt, lalu server menjumlahkan nilai neto.
+  Struk menyimpan harga katalog, harga transaksi, subtotal serta diskon. Format
+  checkout lama tanpa override/diskon tetap diterima.
 - Checkout membaca produk aktif dan revisi terbaru di dalam transaksi tenant.
   Idempotency key UUID dan payload hash menolak penggunaan key yang sama untuk
   isi berbeda, termasuk pemakaian oleh kasir lain.
@@ -101,6 +109,26 @@ Backup tenant di Pengaturan dan prosedur restore operator mencakup katalog,
 struk, idempotency key dan pembatalan. Pengujian PostgreSQL memverifikasi roundtrip
 backup/purge/restore tanpa kehilangan histori atau membuat transaksi duplikat.
 
+## Foto produk dan pembaruan
+
+Ada 12 gambar ilustrasi orisinal yang disajikan dari aset lokal, tanpa CDN.
+Gambar bawaan dihasilkan untuk PAPbox dan merupakan ilustrasi, bukan foto produk
+milik toko. Pengelola dapat menggantinya melalui unggahan foto. Browser mengecilkan
+foto menjadi JPEG maksimal 240 piksel dan 10000 karakter data URL; file sumber
+maksimal 10 MB. Foto yang masih terlalu besar setelah kompresi ditolak.
+Server membatasi format JPEG, ukuran input dan dimensi (maksimal 1024 piksel).
+Foto disimpan dalam JSONB record produk dan ikut backup/restore tenant.
+Permintaan foto harus melalui layanan terautentikasi dengan respons no-store;
+foto privat tidak masuk cache service worker. Blob URL browser hanya digunakan
+untuk menampilkan gambar dan dilepas setelah dimuat. SVG/URL eksternal tidak diterima.
+
+Tidak ada dependensi baru atau migrasi baru untuk pembaruan ini. Data katalog lama
+menggunakan kategori Umum dan ilustrasi pertama sampai diedit. Setelah mengambil
+kode terbaru, jalankan `npm ci`, `npm run db:migrate`, dan restart `npm start`.
+Migrasi yang dibutuhkan tetap `007_pos.sql`; jangan mengubah migrasi yang sudah
+terpasang. Terima pembaruan PWA jika diminta. Admin sudah memiliki izin baru;
+peran kasir khusus perlu diberi dua izin di atas sesuai kebijakan toko.
+
 ## Verifikasi dan batas versi awal
 
 `npm test` mencakup harga berubah, kekurangan tunai, input tamper/fractional,
@@ -111,6 +139,6 @@ Browser smoke POS di [TESTING.md](TESTING.md) memeriksa instalasi, katalog,
 keranjang, pembayaran/kembalian, aksi cetak, respons hilang, hak kasir dan mobile.
 Pengujian aksi cetak tidak membuktikan kompatibilitas printer fisik tertentu.
 
-Belum termasuk kartu/payment gateway, pajak/diskon, fractional quantity, barcode
+Belum termasuk kartu/payment gateway, pajak, fractional quantity, barcode
 hardware, shift/laci kas, retur parsial, transaksi offline, atau integrasi stok
 Inventory. Katalog POS saat ini mandiri; penjualan belum mengurangi stok.

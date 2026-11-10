@@ -8,7 +8,7 @@
 
 Gunakan Node.js 24 (versi yang telah diuji), lalu `npm ci`. Untuk pengembangan dengan PostgreSQL, ikuti [panduan database](docs/DATABASE.md): siapkan `.env`, jalankan `docker compose up -d --wait`, `npm run db:migrate`, lalu `npm start`. Adapter JSON tetap tersedia bila `DATABASE_URL` tidak diatur. Buka aplikasi pada port 3000 dan buat administrator pertama; tidak ada akun bawaan. Jalankan `npm test`, `npm run test:postgres`, dan `npm run check` sesuai panduan.
 
-Launcher, autentikasi/MFA, izin per aksi dan data milik sendiri, peran khusus, sesi PostgreSQL bersama, provisioning/lifecycle tenant, paket deklaratif bertanda tangan dengan model CRUD, serta MCP dengan persetujuan manusia sudah tersedia. POS menyediakan katalog produk, penjualan tunai, struk, dan riwayat; Inventory, CRM dan Invoice masih berupa fondasi.
+Launcher, autentikasi/MFA, izin per aksi dan data milik sendiri, peran khusus, sesi PostgreSQL bersama, provisioning/lifecycle tenant, paket deklaratif bertanda tangan dengan model CRUD, serta MCP dengan persetujuan manusia sudah tersedia. POS menyediakan katalog bergambar, kategori, keypad jumlah/harga/diskon dengan izin khusus, penjualan tunai, struk, dan riwayat; Inventory, CRM dan Invoice masih berupa fondasi.
 
 - [Panduan aplikasi POS](docs/POS.md)
 - [Kontrak modul dan hak akses](docs/MODULES.md)

@@ -2,7 +2,7 @@
 
 ## Tersedia dan diuji
 
-- Aplikasi POS native: katalog, keranjang, checkout tunai IDR, struk, riwayat dan pembatalan, dengan izin kasir serta idempotensi. Lihat [POS.md](POS.md).
+- Aplikasi POS native: katalog bergambar, unggahan foto, kategori, keypad jumlah/harga/diskon, checkout tunai IDR, struk, riwayat dan pembatalan, dengan izin kasir serta idempotensi. Lihat [POS.md](POS.md).
 
 - Kernel layanan, kontrak modul API 1, schema input tertutup, registry/routing,
   dependensi versi tepat, dan registrasi atomik.

@@ -8,6 +8,7 @@ import {effectivePermissions} from '../../system/access.mjs';
 import {tenantStatus,exportTenant,restoreTenant,purgeTenant} from '../../system/tenants.mjs';
 import {createApp} from '../../server.mjs';
 import {once} from 'node:events';
+import {readFile} from 'node:fs/promises';
 export async function posContract(store,{replicaStore=store,operatorStore=store}={}){
  const admin=await provisionTenant(store,{tenant:'shop',name:'POS shop',adminName:'Admin',email:'admin@example.com',password:'admin password 123'});
  const other=await provisionTenant(store,{tenant:'other-shop',name:'Other shop',adminName:'Other',email:'admin@example.com',password:'other password 123'});
@@ -19,7 +20,9 @@ export async function posContract(store,{replicaStore=store,operatorStore=store}
  await assert.rejects(call('pos.products.list',{},await context(admin.user)),{status:403});
  await call('apps.change',{id:'pos',action:'install',approved:true});await call('apps.change',{id:'pos',action:'install',approved:true},otherRoot);
  let manager=await context(admin.user),otherManager=await context(other.user,'other-shop');
- const first=await call('pos.products.create',{sku:'kopi',name:'Kopi',price:12000},manager),second=await call('pos.products.create',{sku:'ROTI',name:'Roti',price:8000},manager);
+ const photo='data:image/jpeg;base64,'+(await readFile(new URL('../fixtures/pos-photo.jpg',import.meta.url))).toString('base64');
+ const first=await call('pos.products.create',{sku:'kopi',name:'Kopi',price:12000,category:'Minuman',imageKey:2,photo},manager),second=await call('pos.products.create',{sku:'ROTI',name:'Roti',price:8000},manager);
+ assert.equal(first.hasPhoto,true);assert.equal(first.photo,undefined);assert.equal((await call('pos.products.photo',{id:first.id},manager)).photo,photo);await assert.rejects(call('pos.products.photo',{id:first.id},otherManager),{status:404});
  assert.equal(first.sku,'KOPI');assert.equal((await call('pos.products.get',{id:first.id.toUpperCase()},manager)).id,first.id);
  await assert.rejects(call('pos.quote',{items:[{productId:first.id,quantity:1},{productId:first.id.toUpperCase(),quantity:1}]},manager),{status:400});
  await assert.rejects(call('pos.products.create',{sku:'KOPI',name:'Duplicate',price:1},manager),{status:409});
@@ -33,6 +36,17 @@ export async function posContract(store,{replicaStore=store,operatorStore=store}
  const actor=await context(cashier),actor2=await context(cashier2);
  assert((await call('launcher.read',{},actor)).some(app=>app.id==='pos'));
  await assert.rejects(call('pos.products.create',{sku:'BAD',name:'Unauthorized',price:100},actor),{status:403});
+ assert.deepEqual(await call('pos.products.categories',{},actor),['Minuman','Umum']);
+ assert.equal((await call('pos.products.list',{category:'Minuman'},actor)).items[0].imageKey,2);
+ assert.equal((await call('pos.products.list',{category:'Makanan'},actor)).items.length,0);
+ await assert.rejects(call('pos.products.create',{sku:'PHOTO',name:'Invalid photo',price:1,photo:'data:image/svg+xml;base64,PHN2Zz4='},manager),{status:400});
+ await assert.rejects(call('pos.products.create',{sku:'PHOTO',name:'Invalid photo',price:1,photo:'data:image/jpeg;base64,YmFk'},manager),{status:400});
+ await assert.rejects(call('pos.quote',{items:[{productId:first.id,quantity:1,unitPrice:12000}]},actor),{status:403});
+ await assert.rejects(call('pos.quote',{items:[{productId:first.id,quantity:1,discountBps:1}]},actor),{status:403});
+ await assert.rejects(call('pos.quote',{items:[{productId:first.id,quantity:1,discountBps:10001}]},manager),{status:400});
+ const rounding=await call('pos.quote',{items:[{productId:first.id,quantity:1,unitPrice:101,discountBps:5000}]},manager);
+ assert.equal(rounding.subtotal,101);assert.equal(rounding.discountTotal,51);assert.equal(rounding.total,50);
+ assert.equal((await call('pos.quote',{items:[{productId:first.id,quantity:1000,unitPrice:1000000000,discountBps:10000}]},manager)).total,0);
  const quote=await call('pos.quote',{items:[{productId:first.id,quantity:2},{productId:second.id,quantity:1}]},actor);assert.equal(quote.total,32000);
  const input={requestId:randomUUID(),items:quote.items.map(({productId,quantity,revision})=>({productId,quantity,revision})),tendered:50000,approved:true};
  await assert.rejects(call('pos.checkout',{...input,tendered:10000},actor),{status:400});
@@ -65,7 +79,15 @@ export async function posContract(store,{replicaStore=store,operatorStore=store}
  try{const result=await fetch('http://127.0.0.1:'+app.server.address().port+'/api/services/pos.sales.list',{method:'POST',headers:{'Content-Type':'application/json',Cookie:'papbox='+token},body:'{}'});assert.equal(result.status,200);assert.equal((await result.json()).items.length,1);}finally{app.server.closeAllConnections();await new Promise(r=>app.server.close(r));}
  if(store.exportTenant){const exported=await store.exportTenant('shop');assert.equal(Object.values(exported.records.pos).filter(row=>row.data.kind==='sale').length,2);}
  await tenantStatus(store,'shop','archived','shop');const backup=await exportTenant(store,'shop');await purgeTenant(operatorStore,backup,'shop');await restoreTenant(store,backup);await tenantStatus(store,'shop','active','shop');
+ assert.equal((await call('pos.products.photo',{id:first.id},manager)).photo,photo);assert.equal((await call('pos.products.get',{id:first.id},manager)).category,'Minuman');
  const restored=await call('pos.sales.get',{id:paid.id},manager);assert.equal(restored.status,'void');assert.equal(restored.items.find(item=>item.productId===first.id).unitPrice,12000);assert.equal((await call('pos.sales.list',{},manager)).items.length,2);
  assert.equal((await call('pos.checkout',input,actor)).id,paid.id);assert.equal((await call('pos.sales.list',{},manager)).items.length,2);
  assert.equal((await call('pos.products.list',{},otherManager)).items.length,1);
+ const discountedInput={requestId:randomUUID(),items:[{productId:second.id,revision:second.revision,quantity:3,unitPrice:101,discountBps:5000}],tendered:200,approved:true};
+ await assert.rejects(call('pos.checkout',discountedInput,actor),{status:403});
+ const discounted=await call('pos.checkout',discountedInput,manager);assert.equal(discounted.subtotal,303);assert.equal(discounted.discountTotal,152);assert.equal(discounted.total,151);assert.equal(discounted.change,49);
+ assert.equal((await replica.invoke('pos.checkout',manager,discountedInput)).id,discounted.id);
+ await assert.rejects(call('pos.checkout',{...discountedInput,items:[{...discountedInput.items[0],discountBps:4000}]},manager),{status:409});
+ await tenantStatus(store,'shop','archived','shop');const discountBackup=await exportTenant(store,'shop');await purgeTenant(operatorStore,discountBackup,'shop');await restoreTenant(store,discountBackup);await tenantStatus(store,'shop','active','shop');
+ assert.equal((await call('pos.sales.get',{id:discounted.id},manager)).discountTotal,152);
 }

@@ -23,12 +23,16 @@ export class PosRepository {
   else this.tenant.records.pos[row.id]=structuredClone(row);
   return row;
  }
- async products({q='',includeInactive=false,limit=50,cursor=''}={}){
+ async categories(){
+  if(this.client)return (await this.client.query("SELECT DISTINCT coalesce(data->>'category','Umum') AS category FROM module_records WHERE tenant_id=$1 AND module_id='pos' AND data->>'kind'='product' AND data->>'active'='true' ORDER BY category LIMIT 1000",[this.tenantId])).rows.map(row=>row.category);
+  return [...new Set(Object.values(this.tenant.records?.pos||{}).filter(row=>row.data.kind==='product'&&row.data.active).map(row=>row.data.category||'Umum'))].sort().slice(0,1000);
+ }
+ async products({q='',category='',includeInactive=false,limit=50,cursor=''}={}){
   if(cursor&&!uuid(cursor))throw new Fault(400,'Cursor produk tidak valid');
   cursor=cursor.toLowerCase();
   let rows;
-  if(this.client)rows=(await this.client.query("SELECT id,owner_id AS owner,data,revision,created_at AS \"createdAt\",updated_at AS \"updatedAt\" FROM module_records WHERE tenant_id=$1 AND module_id='pos' AND data->>'kind'='product' AND ($2 OR data->>'active'='true') AND position(lower($3) in lower((data->>'name')||' '||(data->>'sku')))>0 AND ($4::uuid IS NULL OR id>$4) ORDER BY id LIMIT $5",[this.tenantId,includeInactive,q,cursor||null,limit+1])).rows.map(publicRow);
-  else rows=Object.values(this.tenant.records?.pos||{}).filter(row=>row.data.kind==='product'&&(includeInactive||row.data.active)&&(!cursor||row.id>cursor)&&(row.data.name+' '+row.data.sku).toLowerCase().includes(q.toLowerCase())).sort((a,b)=>a.id.localeCompare(b.id)).slice(0,limit+1);
+  if(this.client)rows=(await this.client.query("SELECT id,owner_id AS owner,data,revision,created_at AS \"createdAt\",updated_at AS \"updatedAt\" FROM module_records WHERE tenant_id=$1 AND module_id='pos' AND data->>'kind'='product' AND ($2 OR data->>'active'='true') AND position(lower($3) in lower((data->>'name')||' '||(data->>'sku')))>0 AND ($4::uuid IS NULL OR id>$4) AND ($6='' OR coalesce(data->>'category','Umum')=$6) ORDER BY id LIMIT $5",[this.tenantId,includeInactive,q,cursor||null,limit+1,category])).rows.map(publicRow);
+  else rows=Object.values(this.tenant.records?.pos||{}).filter(row=>row.data.kind==='product'&&(!category||(row.data.category||'Umum')===category)&&(includeInactive||row.data.active)&&(!cursor||row.id>cursor)&&(row.data.name+' '+row.data.sku).toLowerCase().includes(q.toLowerCase())).sort((a,b)=>a.id.localeCompare(b.id)).slice(0,limit+1);
   return {items:rows.slice(0,limit),nextCursor:rows.length>limit?rows[limit-1].id:null};
  }
  async sales({limit=25,cursor='',owner=null}={}){

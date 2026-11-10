@@ -21,11 +21,11 @@ export function createApp({ assetRoot=new URL('./public/',import.meta.url), mail
   const outbox=new MailOutbox({store,cipher:mfa,logger});
   registerSystem(kernel, store, {trustedKeys,mfa,outbox,emailEnabled:Boolean(mailer)});
   registerNativeApps(kernel,store);
-  const assets = { '/':'index.html','/app.js':'app.js','/native-apps.js':'native-apps.js','/pos.js':'pos.js','/style.css':'style.css','/manifest.webmanifest':'manifest.webmanifest','/sw.js':'sw.js','/offline.html':'offline.html','/icon.svg':'icon.svg','/icon-192.png':'icon-192.png','/icon-512.png':'icon-512.png' };
+  const assets = { '/':'index.html','/app.js':'app.js','/native-apps.js':'native-apps.js','/pos.js':'pos.js','/pos-products.png':'pos-products.png','/style.css':'style.css','/manifest.webmanifest':'manifest.webmanifest','/sw.js':'sw.js','/offline.html':'offline.html','/icon.svg':'icon.svg','/icon-192.png':'icon-192.png','/icon-512.png':'icon-512.png' };
   const server = createServer(async (req,res) => {
     const requestId=randomUUID(),started=performance.now();
     res.once('finish',()=>logger({event:'http.request',requestId,method:req.method,status:res.statusCode,durationMs:Math.round(performance.now()-started)}));
-    const headers = { 'X-Request-Id':requestId,'X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin','Content-Security-Policy':"default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'", 'Cache-Control':'no-store' };
+    const headers = { 'X-Request-Id':requestId,'X-Content-Type-Options':'nosniff','Referrer-Policy':'same-origin','Content-Security-Policy':"default-src 'self'; style-src 'self'; script-src 'self'; img-src 'self' blob:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'", 'Cache-Control':'no-store' };
     const send = (status, data, extra = {}) => { res.writeHead(status, { ...headers, 'Content-Type':'application/json; charset=utf-8', ...extra }); res.end(typeof data === 'string' || Buffer.isBuffer(data) ? data : JSON.stringify(data)); };
     try {
       const url = new URL(req.url, 'http://localhost');

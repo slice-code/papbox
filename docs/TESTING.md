@@ -58,6 +58,10 @@ PAPBOX_PLAYWRIGHT_MODULE=/tmp/papbox-browser/node_modules/playwright-core/index.
   node scripts/pos-browser-smoke.mjs
 ```
 
-Fixture terisolasi memeriksa pemasangan POS, pembuatan produk, kasir/kembalian,
+Fixture terisolasi memeriksa pemasangan POS, kategori, ilustrasi dan unggahan foto,
+keypad jumlah/harga/diskon serta kontrol izin, kasir/kembalian,
 aksi cetak struk, respons checkout hilang, pembatalan, batas izin kasir dan
-riwayat mobile, serta pencegahan struk terlambat setelah logout. Screenshot disimpan pada `/tmp/papbox-pos-mobile.png`.
+riwayat mobile, serta pencegahan struk terlambat setelah logout. Screenshot riwayat disimpan pada `/tmp/papbox-pos-mobile.png`; desain kasir pada
+`/tmp/papbox-pos-desktop-design.png` dan `/tmp/papbox-pos-mobile-design.png`.
+Kontrak JSON/PostgreSQL juga menguji pembulatan diskon, diskon 100%, penolakan
+override tanpa izin, idempotensi harga/diskon, dan snapshot diskon setelah restore.
