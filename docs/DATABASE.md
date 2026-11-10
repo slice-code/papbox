@@ -178,4 +178,6 @@ hostname sesuai; jangan gunakan `rejectUnauthorized:false`. Tetapkan kebijakan
 backup/PITR, monitoring, rotasi kredensial, kapasitas pool, dan provisioning tenant
 sebelum deployment produksi. Compose ini ditujukan untuk pengembangan lokal.
 
-Backup per tenant, purge terkontrol, dan restore yang diuji ada di [OPERATIONS.md](OPERATIONS.md). Query model memakai pagination SQL dan filter owner; grant peran serta approval juga dilindungi RLS. Jangan mengubah migrasi 001–006 yang telah diterapkan; tambahkan migrasi berikutnya.
+Backup per tenant, purge terkontrol, dan restore yang diuji ada di [OPERATIONS.md](OPERATIONS.md). Query model memakai pagination SQL dan filter owner; grant peran serta approval juga dilindungi RLS. Jangan mengubah migrasi 001–007 yang telah diterapkan; tambahkan migrasi berikutnya.
+
+POS native memakai module_records dengan indeks SKU/request unik dan indeks riwayat pada migrasi 007_pos.sql. Backup/restore tenant mencakup record POS. Lihat [POS.md](POS.md).

@@ -2,6 +2,8 @@
 
 ## Tersedia dan diuji
 
+- Aplikasi POS native: katalog, keranjang, checkout tunai IDR, struk, riwayat dan pembatalan, dengan izin kasir serta idempotensi. Lihat [POS.md](POS.md).
+
 - Kernel layanan, kontrak modul API 1, schema input tertutup, registry/routing,
   dependensi versi tepat, dan registrasi atomik.
 - Launcher responsif, pencarian, menu, pengguna, pengaturan, peran khusus dan izin
@@ -43,7 +45,6 @@ Uji browser memakai data uji sementara; installability dan pemasangan Chromium d
 - **Paket executable pihak ketiga:** tidak dijalankan. Tidak ada sandbox atau
   arbitrary SQL migration/hook yang diklaim aman. Kontrak saat ini deklaratif;
   menjalankan kode pihak ketiga memerlukan desain isolasi terpisah.
-- **Modul bisnis POS, Inventory, CRM, Invoice:** masih katalog/fondasi, belum ada
-  transaksi penjualan, stok, pelanggan, atau faktur.
+- **Inventory, CRM, Invoice:** masih katalog/fondasi. POS sudah menyediakan penjualan tunai; integrasi stok dan payment gateway belum tersedia.
 - **Kesiapan produksi penuh:** belum diklaim; lakukan review keamanan/deployment,
   uji provider nyata dan restore cluster, serta validasi perangkat target.

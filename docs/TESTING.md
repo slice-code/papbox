@@ -48,3 +48,16 @@ error dan pemasangan/uninstall PWA pada profile Chromium sementara. Dalam mode
 headless, launch yang diuji masih melaporkan `display-mode: browser`; tampilan
 standalone pada browser berjendela/perangkat nyata belum tervalidasi. Tidak ada
 klaim pengujian perangkat fisik atau readiness produksi dari pemeriksaan ini.
+
+## Browser POS
+
+Dengan Playwright Core dan Chromium yang sama, jalankan:
+
+```sh
+PAPBOX_PLAYWRIGHT_MODULE=/tmp/papbox-browser/node_modules/playwright-core/index.mjs \
+  node scripts/pos-browser-smoke.mjs
+```
+
+Fixture terisolasi memeriksa pemasangan POS, pembuatan produk, kasir/kembalian,
+aksi cetak struk, respons checkout hilang, pembatalan, batas izin kasir dan
+riwayat mobile, serta pencegahan struk terlambat setelah logout. Screenshot disimpan pada `/tmp/papbox-pos-mobile.png`.

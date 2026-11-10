@@ -1,7 +1,7 @@
 # Operasi core PAPbox
 
 Jalankan migrasi sebelum upgrade server. Versi saat ini memerlukan migrasi
-`006_mail_outbox.sql`. Pastikan semua instance memakai kode, database, kunci MFA,
+`007_pos.sql`. Pastikan semua instance memakai kode, database, kunci MFA,
 dan registry penerbit yang konsisten. Tidak ada DDL otomatis saat startup.
 
 ## Kesehatan dan log

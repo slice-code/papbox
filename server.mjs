@@ -1,3 +1,4 @@
+import {registerNativeApps} from './modules/native.mjs';
 import {randomUUID} from 'node:crypto';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
@@ -19,7 +20,8 @@ export function createApp({ assetRoot=new URL('./public/',import.meta.url), mail
   if(mailer&&!mfa.key)throw Error('Email outbox requires PAPBOX_ENCRYPTION_KEY');
   const outbox=new MailOutbox({store,cipher:mfa,logger});
   registerSystem(kernel, store, {trustedKeys,mfa,outbox,emailEnabled:Boolean(mailer)});
-  const assets = { '/':'index.html','/app.js':'app.js','/style.css':'style.css','/manifest.webmanifest':'manifest.webmanifest','/sw.js':'sw.js','/offline.html':'offline.html','/icon.svg':'icon.svg','/icon-192.png':'icon-192.png','/icon-512.png':'icon-512.png' };
+  registerNativeApps(kernel,store);
+  const assets = { '/':'index.html','/app.js':'app.js','/native-apps.js':'native-apps.js','/pos.js':'pos.js','/style.css':'style.css','/manifest.webmanifest':'manifest.webmanifest','/sw.js':'sw.js','/offline.html':'offline.html','/icon.svg':'icon.svg','/icon-192.png':'icon-192.png','/icon-512.png':'icon-512.png' };
   const server = createServer(async (req,res) => {
     const requestId=randomUUID(),started=performance.now();
     res.once('finish',()=>logger({event:'http.request',requestId,method:req.method,status:res.statusCode,durationMs:Math.round(performance.now()-started)}));

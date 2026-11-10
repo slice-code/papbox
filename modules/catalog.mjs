@@ -1,6 +1,7 @@
+import {posApp} from './pos/manifest.mjs';
 // Trusted, bundled metadata only. Never import code from client-supplied manifests.
 export const catalog = Object.freeze([
-  { id: 'pos', name: 'POS', icon: '▣', color: 'blue', description: 'Modul kasir — kontrak bisnis belum diimplementasikan.' },
+  posApp,
   { id: 'inventory', name: 'Inventory', icon: '▤', color: 'green', description: 'Modul persediaan — kontrak bisnis belum diimplementasikan.' },
   { id: 'crm', name: 'CRM', icon: '♧', color: 'purple', description: 'Modul pelanggan — kontrak bisnis belum diimplementasikan.' },
   { id: 'invoice', name: 'Invoice', icon: '▥', color: 'orange', description: 'Modul faktur — kontrak bisnis belum diimplementasikan.' }

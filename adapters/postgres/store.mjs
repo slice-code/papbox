@@ -11,7 +11,7 @@ export class PostgresStore {
   async initialize() {
     const {rows:[role]} = await this.pool.query('SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname=current_user');
     if (role.rolsuper || role.rolbypassrls) throw Error('PAPbox requires a non-superuser role without BYPASSRLS');
-    const result = await this.pool.query("SELECT version FROM schema_migrations WHERE version='006_mail_outbox.sql'");
+    const result = await this.pool.query("SELECT version FROM schema_migrations WHERE version='007_pos.sql'");
     if (!result.rowCount) throw Error('Run npm run db:migrate before starting PAPbox');
   }
   async scoped(tenant, write, operation) {
@@ -84,7 +84,7 @@ export class PostgresStore {
       return result;
     });
   }
-  async health(){const result=await this.pool.query("SELECT count(*)::integer AS version FROM schema_migrations WHERE version='006_mail_outbox.sql'");if(result.rows[0].version!==1)throw Error('Schema not ready');for(const table of ['mail_outbox','roles','module_records','approvals','sessions','users'])await this.pool.query(`SELECT 1 FROM ${table} LIMIT 0`);}
+  async health(){const result=await this.pool.query("SELECT count(*)::integer AS version FROM schema_migrations WHERE version='007_pos.sql'");if(result.rows[0].version!==1)throw Error('Schema not ready');for(const table of ['mail_outbox','roles','module_records','approvals','sessions','users'])await this.pool.query(`SELECT 1 FROM ${table} LIMIT 0`);}
   async exportSnapshot(client,tenant){
     const data=(await this.load(client,tenant)).tenants[tenant];if(!data)return null;
     data.audit=(await client.query('SELECT actor_id AS "user",action,occurred_at,details FROM audit_events WHERE tenant_id=$1 ORDER BY occurred_at,id',[tenant])).rows.map(({occurred_at,...entry})=>({...entry,at:occurred_at.toISOString()}));

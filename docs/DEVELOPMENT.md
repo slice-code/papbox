@@ -49,7 +49,7 @@ proses server: antrean penulisan dan rename atomik bukan penguncian multiproses.
   pembaruan ketika worker baru tersedia. Ubah versi cache ketika mengubah aset.
 - Data autentikasi dan API tidak dicache. Offline tidak menyediakan data bisnis.
 
-POS, Inventory, CRM, dan Invoice **belum memiliki operasi bisnis**. Katalog bawaan tidak memuat kode pihak ketiga. Paket deklaratif bertanda tangan didukung sesuai [SYSTEM.md](SYSTEM.md), tanpa mengeksekusi kode pihak ketiga. Penghapusan modul menghapus registrasi/menu dan histori paketnya.
+POS sudah memiliki [operasi kasir tunai](POS.md). Inventory, CRM, dan Invoice belum memiliki operasi bisnis. Katalog bawaan tidak memuat kode pihak ketiga. Paket deklaratif bertanda tangan didukung sesuai [SYSTEM.md](SYSTEM.md), tanpa mengeksekusi kode pihak ketiga. Penghapusan modul menghapus registrasi/menu dan histori paketnya.
 
 ## Kontrak implementasi awal
 
@@ -81,4 +81,4 @@ Pemeriksaan Chromium manual otomatis pada onboarding mencakup desktop dan ponsel
 setup, instalasi katalog, pencarian, pengaturan, worker, dan fallback offline.
 Instalasi standalone pada perangkat nyata belum diverifikasi.
 
-Langkah berikutnya: tetapkan kontrak bisnis modul pertama dan deployment operasional. Kontrak modul, izin granular, MFA, MCP dengan persetujuan UI, serta lifecycle/backup tenant kini tersedia; lihat [status implementasi](STATUS.md). SSO ditunda oleh pemilik dan paket executable belum didukung. Belum ada transaksi POS, stok, pelanggan, atau faktur.
+Langkah berikutnya: tetapkan kontrak bisnis modul pertama dan deployment operasional. Kontrak modul, izin granular, MFA, MCP dengan persetujuan UI, serta lifecycle/backup tenant kini tersedia; lihat [status implementasi](STATUS.md). SSO ditunda oleh pemilik dan paket executable belum didukung. POS tunai sudah tersedia; stok Inventory, pelanggan CRM, dan faktur Invoice masih tahap berikutnya.

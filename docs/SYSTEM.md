@@ -193,4 +193,4 @@ perubahan password, instalasi/update/rollback paket, rendering konten teks tanpa
 mengeksekusi HTML, dan layout ponsel. Pengujian browser tersebut dilakukan pada
 instance terisolasi, tidak mengubah akun pengguna development.
 
-Batas yang masih berlaku: eksekusi kode pihak ketiga/sandbox belum didukung, dan SSO ditunda. MFA, izin granular, MCP serta adapter email kini tersedia sesuai panduan terkait; email perlu konfigurasi OAuth serta worker outbox menurut [MAIL-WORKER.md](MAIL-WORKER.md). Tidak ada klaim sertifikasi produksi. POS, Inventory, CRM dan Invoice belum menyediakan transaksi bisnis.
+Batas yang masih berlaku: eksekusi kode pihak ketiga/sandbox belum didukung, dan SSO ditunda. MFA, izin granular, MCP serta adapter email kini tersedia sesuai panduan terkait; email perlu konfigurasi OAuth serta worker outbox menurut [MAIL-WORKER.md](MAIL-WORKER.md). Tidak ada klaim sertifikasi produksi. POS tunai kini tersedia sesuai [POS.md](POS.md); Inventory, CRM dan Invoice masih fondasi.

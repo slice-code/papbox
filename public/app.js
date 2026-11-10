@@ -1,3 +1,4 @@
+import {nativeViews} from './native-apps.js';
 const main=document.querySelector('#main'), notice=document.querySelector('#notice');
 let session, apps=[];
 const can=permission=>Boolean(session?.user?.permissions?.[permission]);
@@ -9,6 +10,7 @@ const button=(label,action)=>el('button',{type:'button',onclick:()=>Promise.reso
 function field(label,name,type='text',value=''){return el('label',{},label,el('input',{name,type,value,required:'',...(type==='password'?{minlength:'12',maxlength:'256',autocomplete:session?.setup?'new-password':'current-password'}:{maxlength:'160'})}));}
 function form(fields,submit,label='Simpan'){const node=el('form',{},...fields,el('button',{type:'submit'},label));node.addEventListener('submit',async event=>{event.preventDefault();const b=node.querySelector('[type=submit]');b.disabled=true;try{await submit(Object.fromEntries(new FormData(node)));}catch(e){message(e.message);}finally{b.disabled=false;}});return node;}
 function auth(){
+ document.querySelectorAll('dialog[open]').forEach(dialog=>dialog.close());
  document.querySelector('#search-wrap').hidden=true;document.querySelector('#account').hidden=true;
  const setup=session.setup;
  const content=el('section',{class:'panel auth'},el('h1',{},setup?'Siapkan ruang kerja':'Selamat datang kembali'),el('p',{class:'muted'},setup?'Buat administrator pertama. Kata sandi minimal 12 karakter.':'Masuk ke tenant PAPbox Anda.'),form([...(setup?[field('Nama administrator','name')]:[field('ID tenant','tenant','text','default')]),field('Email','email','email'),field('Kata sandi','password','password'),...(!setup?[el('label',{},'Kode MFA atau recovery (jika aktif)',el('input',{name:'code',maxlength:'32',autocomplete:'one-time-code'}))]:[])],async data=>{await api(setup?'setup':'login',data);await init();},setup?'Buat ruang kerja':'Masuk'));
@@ -27,15 +29,15 @@ function showToken(data){
  const dialog=el('dialog',{},el('h2',{},'Token reset sekali pakai'),el('p',{},'Sampaikan melalui kanal privat yang terverifikasi. Jangan bagikan melalui kanal publik.'),el('label',{},'Token reset',el('input',{value:data.token,readonly:''})),el('p',{},'Berlaku sampai '+new Date(data.expires).toLocaleString('id-ID')),el('form',{method:'dialog'},el('button',{},'Tutup')));
  document.body.append(dialog);dialog.addEventListener('close',()=>dialog.remove());dialog.showModal();
 }
-async function init(){session=await api('session');const reset=new URLSearchParams(location.hash.slice(1)).get('reset');if(reset){history.replaceState(null,'',location.pathname);return resetForm(reset);}if(!session.user)return auth();document.querySelector('#account').hidden=false;document.querySelector('#account').textContent=session.user.name+' · Keluar';await home();}
-async function home(){apps=await service('launcher.read');document.querySelector('#search-wrap').hidden=false;document.querySelector('#search').value='';main.replaceChildren(el('div',{class:'intro'},el('h1',{},'Ruang kerja Anda'),el('p',{},'Semua aplikasi, dalam satu tempat.')),el('div',{class:'grid',id:'grid'}));renderGrid('');}
+async function init(){session=await api('session');const reset=new URLSearchParams(location.hash.slice(1)).get('reset');if(reset){history.replaceState(null,'',location.pathname);return resetForm(reset);}if(!session.user)return auth();document.querySelector('#account').hidden=false;document.querySelector('#account').textContent=session.user.name+' · Keluar';await home(false);}
+async function home(refresh=true){if(refresh){session=await api('session');if(!session.user)return auth();}apps=await service('launcher.read');document.querySelector('#search-wrap').hidden=false;document.querySelector('#search').value='';main.replaceChildren(el('div',{class:'intro'},el('h1',{},'Ruang kerja Anda'),el('p',{},'Semua aplikasi, dalam satu tempat.')),el('div',{class:'grid',id:'grid'}));renderGrid('');}
 function renderGrid(query){const grid=document.querySelector('#grid');if(!grid)return;const matches=apps.filter(a=>a.name.toLocaleLowerCase().includes(query.toLocaleLowerCase()));grid.replaceChildren(...matches.map(a=>buttonTile(a)));if(session.user.role==='admin')grid.append(buttonTile({id:'apps',name:'Tambah',icon:'+',color:'slate'}));if(!matches.length)grid.prepend(el('p',{class:'muted'},'Belum ada aplikasi yang cocok.'));}
 function buttonTile(a){return el('button',{class:'tile',onclick:()=>open(a).catch(e=>message(e.message))},el('span',{class:'icon '+a.color,'aria-hidden':'true'},a.icon),el('span',{},a.name));}
 function panel(title){document.querySelector('#search-wrap').hidden=true;const content=el('section',{class:'panel'},el('h1',{},title));main.replaceChildren(button('← Launcher',home),content);main.firstChild.classList.add('back');return content;}
 async function open(a){
  const p=panel(a.name);
  if(a.id==='apps'){
-  const list=await service('apps.list');p.append(el('p',{class:'muted'},'Kelola katalog bawaan dan paket deklaratif dari penerbit tepercaya. Modul bisnis bawaan belum menyediakan transaksi.'));
+  const list=await service('apps.list');p.append(el('p',{class:'muted'},'Kelola katalog bawaan dan paket deklaratif dari penerbit tepercaya. POS menyediakan kasir tunai; Inventory, CRM dan Invoice masih berupa fondasi.'));
   for(const app of list){const actions=el('div',{class:'actions'});const change=async action=>{if(['install','uninstall'].includes(action)&&!confirm(action==='install'?`Pasang modul bawaan ${app.name}?`:`Hapus pendaftaran ${app.name}?`))return;await service('apps.change',{id:app.id,action,approved:true});message('Aplikasi diperbarui');await open(a);};
   if(!app.installed && can('apps.install'))actions.append(button('Pasang',()=>change('install')));else if(app.installed){if(can('apps.'+(app.enabled?'disable':'enable')))actions.append(button(app.enabled?'Nonaktifkan':'Aktifkan',()=>change(app.enabled?'disable':'enable')));if(can('apps.uninstall'))actions.append(button('Hapus',()=>change('uninstall')));if(app.canRollback && can('apps.rollback'))actions.append(button('Rollback',async()=>{if(!confirm('Kembalikan versi paket sebelumnya?'))return;await service('packages.rollback',{id:app.id,approved:true});await open(a);message('Versi sebelumnya dipulihkan');}));}
   p.append(el('div',{class:'row'},el('div',{},el('strong',{},app.name+' · '+app.version),el('p',{class:'muted'},app.description),el('small',{},app.installed?(app.enabled?'Aktif':'Nonaktif'):'Belum terpasang')),actions));}
@@ -71,6 +73,7 @@ async function open(a){
  }else if(a.id==='settings'){
   const data=await service('settings.list');if(can('settings.update'))p.append(form([field('Nama ruang kerja','name','text',data.name)],async input=>{await service('settings.save',input);message('Pengaturan disimpan');}));else p.append(el('p',{},data.name));if(can('backups.export'))backupPanel(p);if(can('mail.read'))await mailPanel(p);p.append(el('h2',{},'Aktivitas administrator'));
   for(const entry of data.audit)p.append(el('p',{class:'muted'},new Date(entry.at).toLocaleString('id-ID')+' · '+entry.action));
+ }else if(nativeViews[a.id]){await nativeViews[a.id]({container:p,service,can,user:session.user,el,button,form,field,notify:message});
  }else{const app=await service('apps.open',{id:a.id});p.append(el('p',{},app.description || 'Modul fondasi.'),el('p',{class:'module-content'},app.content || 'Aplikasi terdaftar melalui registri modul. Fitur transaksi bisnis akan dibangun pada tahap berikutnya.'));if(app.model)await recordsPanel(p,app);}
 }
 document.querySelector('#search').addEventListener('input',event=>renderGrid(event.target.value));

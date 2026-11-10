@@ -1,3 +1,4 @@
+import {nativePermissions} from '../modules/native-manifests.mjs';
 import { Fault } from '../core/kernel.mjs';
 export const systemPermissions={
  'launcher.read':['all'],'users.read':['all'],'users.create':['all'],'users.update':['all'],'users.reset':['all'],
@@ -6,7 +7,7 @@ export const systemPermissions={
  'approvals.read':['all'],'approvals.approve':['all'],'roles.read':['all'],'roles.manage':['all'],'roles.assign':['all'],'contracts.read':['all']
 };
 export const baselineRoles={admin:['launcher.read',...Object.keys(systemPermissions)],member:['launcher.read']};
-export const modulePermissions=id=>({[id+'.open']:['all'],[id+'.records.read']:['own','all'],[id+'.records.create']:['own','all'],[id+'.records.update']:['own','all'],[id+'.records.delete']:['own','all']});
+export const modulePermissions=id=>nativePermissions[id]||({[id+'.open']:['all'],[id+'.records.read']:['own','all'],[id+'.records.create']:['own','all'],[id+'.records.update']:['own','all'],[id+'.records.delete']:['own','all']});
 export function permissionCatalog(tenant){
  const result={...systemPermissions};for(const id of Object.keys(tenant.modules||{}))Object.assign(result,modulePermissions(id));return result;
 }

@@ -1,5 +1,6 @@
 import { readFile,stat } from 'node:fs/promises';
 import { runtimeStore } from './runtime-store.mjs';
+import {registerNativeApps} from '../modules/native.mjs';
 import { Kernel } from '../core/kernel.mjs';
 import { registerSystem } from '../system/services.mjs';
 import { Identity } from '../system/identity.mjs';
@@ -9,7 +10,7 @@ const file=process.env.PAPBOX_MCP_SESSION_FILE;if(!file)throw Error('PAPBOX_MCP_
 const session=async()=>{const info=await stat(file);if(!info.isFile()||info.mode&0o077||process.getuid&&info.uid!==process.getuid())throw Error('MCP session file must be owned by current user and mode 0600');return (await readFile(file,'utf8')).trim();};
 const store=await runtimeStore(),kernel=new Kernel(),mfa=new Mfa(process.env.PAPBOX_ENCRYPTION_KEY);
 const trustedKeys=process.env.PAPBOX_TRUSTED_KEYS?JSON.parse(await readFile(process.env.PAPBOX_TRUSTED_KEYS,'utf8')):{};
-registerSystem(kernel,store,{trustedKeys,mfa});const adapter=new McpAdapter({kernel,identity:new Identity(store,{mfa}),session,trustedKeys});
+registerSystem(kernel,store,{trustedKeys,mfa});registerNativeApps(kernel,store);const adapter=new McpAdapter({kernel,identity:new Identity(store,{mfa}),session,trustedKeys});
 let pending='';
 try{
  process.stdin.setEncoding('utf8');
